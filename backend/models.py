@@ -63,6 +63,7 @@ class Farmer(Base):
     district = Column(String(255), nullable=False)
     state = Column(String(255), nullable=False)
     land_size_acres = Column(Float, nullable=False)
+    fpo_name = Column(String(255), nullable=True)
     status = Column(SQLEnum(FarmerStatus), default=FarmerStatus.PENDING)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

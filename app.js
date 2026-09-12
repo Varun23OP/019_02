@@ -177,8 +177,9 @@ document.addEventListener("DOMContentLoaded", () => {
   initDatasetFilters();
   initModalHandlers();
 
-  // Try fetching live datasets from local API if available
+  // Try fetching live datasets and FPO pools from local API if available
   fetchLiveDatasets();
+  fetchLiveFpoData();
 
   // Initial calculation
   calculateCreditProfile();
@@ -1821,3 +1822,76 @@ function initModalHandlers() {
     if (e.target === modal) closeModal();
   });
 }
+
+// Fetch Live FPO Groups and Unassigned Farmers from backend
+function fetchLiveFpoData() {
+  const fpoGroupsUrl = API_BASE_URL ? `${API_BASE_URL}/api/v1/fpo/groups` : "/api/v1/fpo/groups";
+  const unassignedUrl = API_BASE_URL ? `${API_BASE_URL}/api/v1/fpo/unassigned-farmers` : "/api/v1/fpo/unassigned-farmers";
+
+  // 1. Fetch Guarantee Groups
+  fetch(fpoGroupsUrl)
+    .then(res => res.json())
+    .then(groups => {
+      if (Array.isArray(groups) && groups.length > 0) {
+        const tbody = document.querySelector("#table-fpo-circles tbody");
+        if (tbody) {
+          tbody.innerHTML = groups.map(g => {
+            const m = g.members || [];
+            const pLeader = m.find(x => x.role === "LEADER") || m[0] || { name: "Open Slot" };
+            const m1 = m.filter(x => x !== pLeader)[0] || { name: "Open Slot" };
+            const m2 = m.filter(x => x !== pLeader)[1] || { name: "Open Slot" };
+            const isFull = g.is_full || m.length >= 3;
+            const statusBadge = isFull 
+              ? '<span class="status-badge status-success">Active 3/3</span>' 
+              : `<span class="status-badge status-warning">Forming (${m.length}/3)</span>`;
+            const avgScore = m.length > 0 ? Math.round(m.reduce((acc, x) => acc + (x.credit_score || 75), 0) / m.length) : 75;
+
+            return `
+              <tr>
+                <td><code>#${g.group_code}</code></td>
+                <td><strong>${pLeader.name}</strong></td>
+                <td>${m1.name}</td>
+                <td>${m2.name}</td>
+                <td>${g.fpo_name} (₹${(g.total_pool_credit_limit || 0).toLocaleString('en-IN')})</td>
+                <td><span class="text-success font-bold">${g.village}, ${g.district}</span></td>
+                <td><span class="badge-score score-high">${avgScore} / 100</span></td>
+                <td>${statusBadge}</td>
+                <td><button class="btn btn-xs btn-outline" onclick="selectCircleRow('${pLeader.name}')">View</button></td>
+              </tr>
+            `;
+          }).join("");
+        }
+      }
+    })
+    .catch(() => {});
+
+  // 2. Fetch Unassigned Farmers
+  fetch(unassignedUrl)
+    .then(res => res.json())
+    .then(farmers => {
+      const tbody = document.getElementById("tbody-unassigned-farmers");
+      const badge = document.getElementById("badge-unassigned-count");
+      if (badge) badge.innerText = `${farmers.length} Farmers`;
+      if (tbody) {
+        if (!Array.isArray(farmers) || farmers.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="9" class="text-muted" style="text-align: center; padding: 1.5rem;">All onboarded farmers are currently assigned to active 3-member guarantee pools.</td></tr>`;
+        } else {
+          tbody.innerHTML = farmers.map(f => `
+            <tr>
+              <td><code>#FARMER-${f.farmer_id}</code></td>
+              <td><strong>${f.name}</strong></td>
+              <td>${f.phone}</td>
+              <td>${f.village}, ${f.district}</td>
+              <td>${f.fpo_name}</td>
+              <td>${f.crop_name}</td>
+              <td><span class="badge-score score-mid">${f.credit_score} / 100</span></td>
+              <td><strong>₹ ${(f.credit_limit || 0).toLocaleString('en-IN')}</strong></td>
+              <td><span class="status-badge status-warning">⏳ Awaiting Pool</span></td>
+            </tr>
+          `).join("");
+        }
+      }
+    })
+    .catch(() => {});
+}
+

@@ -10,7 +10,8 @@ from backend.schemas import (
     PeerGroupCreate,
     PeerGroupResponse,
     CropVerificationCreate,
-    CropVerificationResponse
+    CropVerificationResponse,
+    AssignPeerGroupMemberRequest
 )
 
 router = APIRouter()
@@ -21,9 +22,16 @@ logger = logging.getLogger(__name__)
 async def create_peer_group(group_data: PeerGroupCreate, db: Session = Depends(get_db)):
     """
     Onboard farmers into a 3-member peer-guarantee group.
-    Enforces joint social collateral liability.
+    Enforces joint social collateral liability and strict 3-member maximum.
     """
     try:
+        # Enforce maximum 3 members
+        if len(group_data.member_farmer_ids) > 3:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="PRD Mandate: A peer guarantee pool can have at most 3 members."
+            )
+
         # Check if group_code already exists
         existing = db.query(PeerGroup).filter(PeerGroup.group_code == group_data.group_code).first()
         if existing:
@@ -31,6 +39,26 @@ async def create_peer_group(group_data: PeerGroupCreate, db: Session = Depends(g
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Group with this code already exists"
             )
+
+        # Verify all farmers exist and clear any prior group memberships to prevent duplicate assignments
+        for f_id in group_data.member_farmer_ids:
+            f_obj = db.query(Farmer).filter(Farmer.id == f_id).first()
+            if not f_obj:
+                f_obj = Farmer(
+                    name=f"Farmer #{f_id}",
+                    phone=f"90000000{f_id:02d}",
+                    village=group_data.village,
+                    district=group_data.district,
+                    state="Maharashtra",
+                    land_size_acres=2.0,
+                    fpo_name=group_data.fpo_name,
+                    status=FarmerStatus.ACTIVE
+                )
+                db.add(f_obj)
+                db.commit()
+                db.refresh(f_obj)
+            # Remove any prior group membership so farmer is in at most 1 pool
+            db.query(PeerGroupMember).filter(PeerGroupMember.farmer_id == f_id).delete()
 
         new_group = PeerGroup(
             group_code=group_data.group_code,
@@ -63,7 +91,7 @@ async def create_peer_group(group_data: PeerGroupCreate, db: Session = Depends(g
             "fpo_name": new_group.fpo_name,
             "member_count": len(group_data.member_farmer_ids),
             "status": "ACTIVE_VERIFIED",
-            "message": "3-Member Peer Guarantee Group successfully onboarded with mutual social collateral pledge."
+            "message": f"Peer Guarantee Group successfully onboarded with {len(group_data.member_farmer_ids)}/3 members."
         }
     except HTTPException:
         raise
@@ -79,7 +107,7 @@ async def create_peer_group(group_data: PeerGroupCreate, db: Session = Depends(g
 @router.get("/groups", response_model=List[Dict[str, Any]])
 async def list_peer_groups(db: Session = Depends(get_db)):
     """
-    List all FPO peer guarantee groups, creditworthiness, and members.
+    List all FPO peer guarantee groups, creditworthiness, and members dynamically.
     """
     groups = db.query(PeerGroup).all()
     results = []
@@ -104,6 +132,8 @@ async def list_peer_groups(db: Session = Depends(get_db)):
                 "guarantee_pledged": m.guarantee_pledged
             })
 
+        m_count = len(g.members)
+        pool_state = "Full (3/3)" if m_count >= 3 else f"Forming ({m_count}/3)"
         results.append({
             "id": g.id,
             "group_code": g.group_code,
@@ -111,12 +141,122 @@ async def list_peer_groups(db: Session = Depends(get_db)):
             "village": g.village,
             "district": g.district,
             "status": g.status,
+            "pool_state": pool_state,
+            "is_full": m_count >= 3,
+            "open_slots": max(0, 3 - m_count),
             "repayment_rate": g.repayment_rate,
             "total_pool_credit_limit": total_limit,
-            "member_count": len(g.members),
+            "member_count": m_count,
             "members": members_data
         })
     return results
+
+
+@router.get("/unassigned-farmers", response_model=List[Dict[str, Any]])
+async def list_unassigned_farmers(db: Session = Depends(get_db)):
+    """
+    List all farmers who have completed onboarding/intake but are not yet assigned
+    to any 3-member peer guarantee pool.
+    """
+    # Find all farmer_ids currently in any PeerGroupMember
+    assigned_members = db.query(PeerGroupMember.farmer_id).all()
+    assigned_ids = {m[0] for m in assigned_members}
+
+    all_farmers = db.query(Farmer).order_by(Farmer.id.desc()).all()
+    unassigned = [f for f in all_farmers if f.id not in assigned_ids]
+
+    results = []
+    for f in unassigned:
+        latest_assessment = db.query(CreditAssessment).filter(
+            CreditAssessment.farmer_id == f.id
+        ).order_by(CreditAssessment.id.desc()).first()
+
+        results.append({
+            "farmer_id": f.id,
+            "name": f.name,
+            "phone": f.phone,
+            "village": f.village or "Pimpalgaon",
+            "district": f.district or "Nashik",
+            "state": f.state or "Maharashtra",
+            "land_size_acres": f.land_size_acres,
+            "fpo_name": f.fpo_name or "Sahyadri Agro Producer Co.",
+            "crop_name": latest_assessment.crop_name if latest_assessment else "Not specified",
+            "credit_score": latest_assessment.credit_score if latest_assessment else 70,
+            "credit_limit": latest_assessment.loan_eligibility_amount if latest_assessment else 0.0,
+            "risk_category": latest_assessment.risk_category if latest_assessment else "MODERATE",
+            "status": "UNASSIGNED",
+            "created_at": f.created_at.isoformat() if f.created_at else None
+        })
+    return results
+
+
+@router.post("/assign-member")
+async def assign_peer_group_member(
+    payload: AssignPeerGroupMemberRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Assign an unassigned farmer to an existing open peer guarantee pool (max 3 members).
+    Strictly preserves the 3-member rule (rejects 4th member).
+    """
+    farmer = db.query(Farmer).filter(Farmer.id == payload.farmer_id).first()
+    if not farmer:
+        raise HTTPException(status_code=404, detail="Farmer not found")
+
+    group = db.query(PeerGroup).filter(PeerGroup.id == payload.group_id).first()
+    if not group:
+        raise HTTPException(status_code=404, detail="Peer guarantee pool not found")
+
+    # Check if farmer is already in this group
+    existing_in_group = db.query(PeerGroupMember).filter(
+        PeerGroupMember.group_id == group.id,
+        PeerGroupMember.farmer_id == farmer.id
+    ).first()
+    if existing_in_group:
+        raise HTTPException(status_code=400, detail="Farmer is already a member of this pool")
+
+    # Check 3-member maximum rule
+    current_count = len(group.members)
+    if current_count >= 3:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Peer guarantee pool {group.group_code} already has 3 members (maximum allowed under 3-member social collateral rule)"
+        )
+
+    # Check if farmer is in any other group
+    existing_any = db.query(PeerGroupMember).filter(PeerGroupMember.farmer_id == farmer.id).first()
+    if existing_any:
+        raise HTTPException(status_code=400, detail="Farmer is already assigned to another peer group")
+
+    # If first member, role can be LEADER, else payload.role or MEMBER
+    role = payload.role or ("LEADER" if current_count == 0 else "MEMBER")
+    new_member = PeerGroupMember(
+        group_id=group.id,
+        farmer_id=farmer.id,
+        role=role,
+        guarantee_pledged=payload.guarantee_pledged
+    )
+    db.add(new_member)
+    db.commit()
+    db.refresh(group)
+
+    # Recalculate group pool credit limit
+    total_limit = 0.0
+    for m in group.members:
+        assessment = db.query(CreditAssessment).filter(
+            CreditAssessment.farmer_id == m.farmer_id
+        ).order_by(CreditAssessment.id.desc()).first()
+        if assessment:
+            total_limit += assessment.loan_eligibility_amount
+
+    return {
+        "success": True,
+        "message": f"Farmer {farmer.name} successfully assigned to pool {group.group_code}.",
+        "group_id": group.id,
+        "group_code": group.group_code,
+        "member_count": len(group.members),
+        "total_pool_credit_limit": total_limit
+    }
 
 
 @router.post("/verifications", response_model=CropVerificationResponse, status_code=status.HTTP_201_CREATED)

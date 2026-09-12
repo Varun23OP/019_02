@@ -19,8 +19,7 @@ from backend.routers import (
     voice
 )
 from backend.config import settings
-from backend.database import engine, Base
-
+from backend.database import engine, Base, init_db_schema
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -33,8 +32,8 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     """Application lifespan events"""
     logger.info("Starting KisanSetu Farmer Financial Infrastructure API")
-    Base.metadata.create_all(bind=engine)
-    logger.info("Database tables verified / created")
+    init_db_schema()
+    logger.info("Database tables verified / created / migrated")
     yield
     logger.info("Shutting down application")
 

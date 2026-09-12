@@ -184,7 +184,9 @@ The repository includes a GitHub Actions workflow (`.github/workflows/pages.yml`
 
 ### 3. FPO Coordinator & Peer Groups (`/api/v1/fpo`)
 * `POST /api/v1/fpo/groups` — Onboard 3-member peer guarantee group with social collateral pledge
-* `GET /api/v1/fpo/groups` — List active peer groups, pool limits, and member creditworthiness
+* `GET /api/v1/fpo/groups` — List active peer groups, pool limits, member creditworthiness, and open slots
+* `GET /api/v1/fpo/unassigned-farmers` — List newly submitted farmers awaiting guarantee pool formation
+* `POST /api/v1/fpo/assign-member` — Assign unassigned farmer to an existing open pool (strictly enforces 3-member limit)
 * `POST /api/v1/fpo/verifications` — Record field visit crop verification outcome
 * `GET /api/v1/fpo/verifications` — List field crop inspection records
 * `GET /api/v1/fpo/alerts` — Retrieve early warning alerts for struggling members

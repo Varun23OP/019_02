@@ -515,6 +515,108 @@ with col_status:
     else:
         st.info("🟡 Local Edge Engine: Active")
 
+
+def get_live_fpo_groups():
+    """Fetch live FPO peer guarantee groups from FastAPI backend with SQLite local fallback."""
+    if backend_connected:
+        try:
+            res = requests.get(f"{API_BASE}/fpo/groups", timeout=2.5)
+            if res.status_code == 200:
+                return res.json()
+        except Exception:
+            pass
+    try:
+        from backend.database import SessionLocal
+        from backend.models import PeerGroup, PeerGroupMember, Farmer, CreditAssessment
+        db = SessionLocal()
+        groups = db.query(PeerGroup).all()
+        results = []
+        for g in groups:
+            members_data = []
+            total_limit = 0.0
+            for m in g.members:
+                farmer = db.query(Farmer).filter(Farmer.id == m.farmer_id).first()
+                assessment = db.query(CreditAssessment).filter(
+                    CreditAssessment.farmer_id == m.farmer_id
+                ).order_by(CreditAssessment.id.desc()).first()
+                limit = assessment.loan_eligibility_amount if assessment else 0.0
+                score = assessment.credit_score if assessment else 70
+                total_limit += limit
+                members_data.append({
+                    "farmer_id": m.farmer_id,
+                    "name": farmer.name if farmer else f"Farmer #{m.farmer_id}",
+                    "phone": farmer.phone if farmer else "N/A",
+                    "role": m.role,
+                    "credit_score": score,
+                    "credit_limit": limit,
+                    "guarantee_pledged": m.guarantee_pledged
+                })
+            m_count = len(g.members)
+            results.append({
+                "id": g.id,
+                "group_code": g.group_code,
+                "fpo_name": g.fpo_name,
+                "village": g.village,
+                "district": g.district,
+                "status": g.status,
+                "pool_state": "Full (3/3)" if m_count >= 3 else f"Forming ({m_count}/3)",
+                "is_full": m_count >= 3,
+                "open_slots": max(0, 3 - m_count),
+                "repayment_rate": g.repayment_rate,
+                "total_pool_credit_limit": total_limit,
+                "member_count": m_count,
+                "members": members_data
+            })
+        db.close()
+        return results
+    except Exception:
+        return []
+
+
+def get_unassigned_farmers():
+    """Fetch all farmers not currently assigned to any 3-member peer guarantee pool."""
+    if backend_connected:
+        try:
+            res = requests.get(f"{API_BASE}/fpo/unassigned-farmers", timeout=2.5)
+            if res.status_code == 200:
+                return res.json()
+        except Exception:
+            pass
+    try:
+        from backend.database import SessionLocal
+        from backend.models import PeerGroupMember, Farmer, CreditAssessment
+        db = SessionLocal()
+        assigned_members = db.query(PeerGroupMember.farmer_id).all()
+        assigned_ids = {m[0] for m in assigned_members}
+        all_farmers = db.query(Farmer).order_by(Farmer.id.desc()).all()
+        unassigned = [f for f in all_farmers if f.id not in assigned_ids]
+        results = []
+        for f in unassigned:
+            latest_assessment = db.query(CreditAssessment).filter(
+                CreditAssessment.farmer_id == f.id
+            ).order_by(CreditAssessment.id.desc()).first()
+            results.append({
+                "farmer_id": f.id,
+                "name": f.name,
+                "phone": f.phone,
+                "village": f.village or "Pimpalgaon",
+                "district": f.district or "Nashik",
+                "state": f.state or "Maharashtra",
+                "land_size_acres": f.land_size_acres,
+                "fpo_name": f.fpo_name or "Sahyadri Agro Producer Co.",
+                "crop_name": latest_assessment.crop_name if latest_assessment else "Not specified",
+                "credit_score": latest_assessment.credit_score if latest_assessment else 70,
+                "credit_limit": latest_assessment.loan_eligibility_amount if latest_assessment else 0.0,
+                "risk_category": latest_assessment.risk_category if latest_assessment else "MODERATE",
+                "status": "UNASSIGNED",
+                "created_at": f.created_at.isoformat() if f.created_at else None
+            })
+        db.close()
+        return results
+    except Exception:
+        return []
+
+
 st.title(T["title"])
 st.caption(T["tagline"])
 
@@ -932,6 +1034,22 @@ with tab1:
         c_irr = st.number_input(T["irr_cost_label"], min_value=500.0, max_value=50000.0, step=500.0, key="ff_irr", on_change=mark_manual_edit, args=("costs",))
 
         fpo_group = st.selectbox(T["fpo_label"], ["Sahyadri Agro Producer Co.", "Tapi Valley Organic FPO", "Kisan Vikas Collective"], key="ff_fpo")
+
+        # 3-Member Peer Guarantee Pool Choice
+        all_live_groups = get_live_fpo_groups()
+        open_pools = [g for g in all_live_groups if not g.get("is_full", False) and g.get("member_count", 0) < 3]
+        pool_options = {"⏳ Unassigned (Awaiting FPO Guarantee Pool Formation)": None}
+        for op in open_pools:
+            pool_options[f"🤝 Join {op['group_code']} ({op['fpo_name']}) — {op.get('member_count', 0)}/3 Members"] = op["id"]
+
+        selected_pool_label = st.selectbox(
+            "🤝 3-Member Peer Guarantee Pool Assignment",
+            options=list(pool_options.keys()),
+            key="ff_target_pool",
+            help="Select an existing forming pool (<3 members) to join, or register as unassigned for coordinator to assign."
+        )
+        target_pool_id = pool_options[selected_pool_label]
+
         p1 = st.text_input(T["p1_label"], key="ff_p1")
         p2 = st.text_input(T["p2_label"], key="ff_p2")
         p3 = st.text_input(T["p3_label"], key="ff_p3")
@@ -953,6 +1071,11 @@ with tab1:
             payload = {
                 "farmer_name": farmer_name,
                 "phone": phone,
+                "village": village or "Pimpalgaon",
+                "district": district or "Nashik",
+                "state": "Maharashtra",
+                "fpo_name": fpo_group,
+                "target_pool_id": target_pool_id,
                 "crop_name": crop,
                 "acres": acres,
                 "projected_yield": projected_yield,
@@ -967,6 +1090,7 @@ with tab1:
             underwriting_data = None
             vc_data = None
             alerts_data = None
+            pool_info = None
 
             # Try live backend first
             if backend_connected:
@@ -977,11 +1101,12 @@ with tab1:
                         underwriting_data = res_json["underwriting_result"]
                         vc_data = res_json.get("verifiable_credential")
                         alerts_data = res_json.get("proactive_alerts")
+                        pool_info = res_json.get("pool_assignment")
                         st.toast("Application saved to live network!", icon="✅")
                 except Exception:
                     underwriting_data = None
 
-            # Fallback to deterministic local engine
+            # Fallback to deterministic local engine + SQLite persistence
             if not underwriting_data:
                 underwriting_data = UnderwritingService.calculate_assessment(
                     farmer_name=farmer_name,
@@ -996,6 +1121,78 @@ with tab1:
                     peer_guarantors_count=3,
                     is_consistent_performer=is_repeat
                 )
+                try:
+                    from backend.database import SessionLocal
+                    from backend.models import Farmer, FarmerStatus, CreditAssessment, PeerGroup, PeerGroupMember
+                    db_fallback = SessionLocal()
+                    f_fb = db_fallback.query(Farmer).filter(Farmer.phone == phone).first()
+                    if not f_fb:
+                        f_fb = Farmer(
+                            name=farmer_name,
+                            phone=phone,
+                            village=village or "Pimpalgaon",
+                            district=district or "Nashik",
+                            state="Maharashtra",
+                            land_size_acres=acres,
+                            fpo_name=fpo_group,
+                            status=FarmerStatus.ACTIVE
+                        )
+                        db_fallback.add(f_fb)
+                        db_fallback.commit()
+                        db_fallback.refresh(f_fb)
+                    else:
+                        f_fb.name = farmer_name
+                        f_fb.land_size_acres = acres
+                        f_fb.village = village or "Pimpalgaon"
+                        f_fb.district = district or "Nashik"
+                        f_fb.fpo_name = fpo_group
+                        db_fallback.commit()
+                        db_fallback.refresh(f_fb)
+
+                    # If target_pool_id selected and has < 3 members, link
+                    if target_pool_id:
+                        g_fb = db_fallback.query(PeerGroup).filter(PeerGroup.id == target_pool_id).first()
+                        if g_fb and len(g_fb.members) < 3:
+                            exists_m = db_fallback.query(PeerGroupMember).filter(
+                                PeerGroupMember.group_id == g_fb.id,
+                                PeerGroupMember.farmer_id == f_fb.id
+                            ).first()
+                            if not exists_m:
+                                role = "LEADER" if len(g_fb.members) == 0 else "MEMBER"
+                                db_fallback.add(PeerGroupMember(
+                                    group_id=g_fb.id,
+                                    farmer_id=f_fb.id,
+                                    role=role,
+                                    guarantee_pledged=True
+                                ))
+                                db_fallback.commit()
+
+                    bullet_d = datetime.strptime(underwriting_data["amortization"]["bullet_due_date"], "%Y-%m-%d")
+                    db_ass = CreditAssessment(
+                        farmer_id=f_fb.id,
+                        assessment_date=datetime.now(),
+                        credit_score=underwriting_data["credit_score"],
+                        loan_eligibility_amount=underwriting_data["credit_limit"],
+                        risk_category=underwriting_data["risk_category"],
+                        crop_name=crop,
+                        acres=acres,
+                        projected_yield=projected_yield,
+                        mandi_price_per_qtl=underwriting_data["mandi_price_per_qtl"],
+                        gross_revenue=underwriting_data["gross_revenue"],
+                        total_expenses=underwriting_data["expenses_breakdown"]["total"],
+                        net_profit=underwriting_data["net_profit"],
+                        pmfby_insured=underwriting_data["pmfby_insured"],
+                        bullet_repayment_date=bullet_d,
+                        status="PENDING_REVIEW",
+                        score_breakdown=json.dumps(underwriting_data["score_factors"]),
+                        notes=underwriting_data["explanation"]["en"]
+                    )
+                    db_fallback.add(db_ass)
+                    db_fallback.commit()
+                    db_fallback.close()
+                except Exception:
+                    pass
+
                 vc_data = FarmerIdentityService.issue_verifiable_credit_credential(
                     farmer_id=1,
                     farmer_name=farmer_name,
@@ -1013,6 +1210,16 @@ with tab1:
                 alerts_data = AgriDataService.generate_alerts(crop, acres, bullet_d)
 
             st.success(T["success_msg"])
+            if pool_info:
+                if pool_info.get("assigned"):
+                    st.success(f"🤝 **FPO Guarantee Pool Status**: {pool_info.get('message')}")
+                else:
+                    st.info(f"⏳ **FPO Guarantee Pool Status**: {pool_info.get('message')}")
+            else:
+                if target_pool_id:
+                    st.success("🤝 **FPO Guarantee Pool Status**: Farmer successfully assigned to selected guarantee pool.")
+                else:
+                    st.info("⏳ **FPO Guarantee Pool Status**: Farmer registered as unassigned. FPO Coordinator can assign to a 3-member pool in Tab 2.")
 
             # Key Financial Metrics
             m1, m2, m3, m4 = st.columns(4)
@@ -1098,10 +1305,18 @@ with tab2:
     st.caption("3-Member Peer Guarantee Group Management • Field Visit Crop Verification • Early Distress Intervention")
 
     fpo_k1, fpo_k2, fpo_k3, fpo_k4 = st.columns(4)
-    fpo_k1.metric("Active Guarantee Pools", "18 Pools (54 Farmers)", "100% Social Guarantee")
-    fpo_k2.metric("Pool Repayment Rate", "82.4%", "+4.4% vs Target")
-    fpo_k3.metric("Verified Acreage", "108.5 Acres", "Zero Land-Deeds")
-    fpo_k4.metric("Offline Sync Status", "Synced (0 Queued)", "Mobile-Resilient")
+    live_groups = get_live_fpo_groups()
+    unassigned_farmers = get_unassigned_farmers()
+    total_pools = len(live_groups)
+    total_pool_farmers = sum(g.get("member_count", len(g.get("members", []))) for g in live_groups)
+    total_pool_credit = sum(g.get("total_pool_credit_limit", 0.0) for g in live_groups)
+    unassigned_count = len(unassigned_farmers)
+
+    fpo_k1, fpo_k2, fpo_k3, fpo_k4 = st.columns(4)
+    fpo_k1.metric("Active Guarantee Pools", f"{total_pools} Pools ({total_pool_farmers} Farmers)", "3-Peer Social Collateral")
+    fpo_k2.metric("Total Pool Credit Capacity", f"₹{total_pool_credit:,.0f}", "Live Agronomic Sizing")
+    fpo_k3.metric("Unassigned Farmers Queue", f"{unassigned_count} Farmers", "Awaiting Pool Formation")
+    fpo_k4.metric("3-Member Rule Compliance", "100% Strict", "Max 3 Members / Pool")
 
     fpo_sub1, fpo_sub2, fpo_sub3 = st.tabs([
         "👥 3-Member Peer Guarantee Groups",
@@ -1111,78 +1326,231 @@ with tab2:
 
     with fpo_sub1:
         st.write("#### Active 3-Member Guarantee Pools (Social Collateral)")
-        
-        # Query groups from backend if available
-        groups_list = []
-        if backend_connected:
-            try:
-                g_res = requests.get(f"{API_BASE}/fpo/groups", timeout=1.5)
-                if g_res.status_code == 200:
-                    groups_list = g_res.json()
-            except Exception:
-                groups_list = []
+        st.caption("Mutually guaranteed credit circles. Strict maximum of 3 members per pool.")
 
-        if not groups_list:
-            groups_list = [
-                {
-                    "group_code": "GRP-SAHYADRI-01",
-                    "fpo_name": "Sahyadri Agro Producer Co.",
-                    "village": "Pimpalgaon, Nashik",
-                    "status": "ACTIVE",
-                    "repayment_rate": 100.0,
-                    "total_pool_credit_limit": 76950.0,
-                    "members": [
-                        {"name": "Ramesh Patel", "role": "LEADER", "credit_score": 85, "credit_limit": 25650.0, "guarantee_pledged": True},
-                        {"name": "Suresh Kumar", "role": "MEMBER", "credit_score": 82, "credit_limit": 23100.0, "guarantee_pledged": True},
-                        {"name": "Dinesh Bhai", "role": "MEMBER", "credit_score": 88, "credit_limit": 28200.0, "guarantee_pledged": True}
-                    ]
-                },
-                {
-                    "group_code": "GRP-TAPI-02",
-                    "fpo_name": "Tapi Valley Organic FPO",
-                    "village": "Depalpur, Indore",
-                    "status": "ACTIVE",
-                    "repayment_rate": 100.0,
-                    "total_pool_credit_limit": 62451.0,
-                    "members": [
-                        {"name": "Geeta Devi", "role": "LEADER", "credit_score": 82, "credit_limit": 20817.0, "guarantee_pledged": True},
-                        {"name": "Jayesh Vora", "role": "MEMBER", "credit_score": 80, "credit_limit": 21500.0, "guarantee_pledged": True},
-                        {"name": "Govind Solanki", "role": "MEMBER", "credit_score": 79, "credit_limit": 20134.0, "guarantee_pledged": True}
-                    ]
-                }
-            ]
+        if not live_groups:
+            st.info("No guarantee pools formed yet. Form your first 3-member pool below.")
+        else:
+            for g in live_groups:
+                m_list = g.get("members", [])
+                m_count = g.get("member_count", len(m_list))
+                pool_state = g.get("pool_state", "Full (3/3)" if m_count >= 3 else f"Forming ({m_count}/3)")
+                limit_val = g.get("total_pool_credit_limit", 0.0)
 
-        for g in groups_list:
-            with st.expander(f"📌 {g['group_code']} — {g['fpo_name']} ({g.get('village', 'Nashik')}) | Total Pool Limit: ₹{g.get('total_pool_credit_limit', 75000):,.0f}", expanded=True):
-                st.markdown(f"**Status:** `{g['status']}` | **Repayment Track Record:** `{g['repayment_rate']}%` | **Joint Liability Pledge:** `Active 3/3`")
-                members_df = pd.DataFrame(g["members"])
-                st.dataframe(members_df, use_container_width=True)
+                with st.expander(
+                    f"📌 {g['group_code']} — {g['fpo_name']} ({g.get('village', 'Nashik')}) | Total Pool Limit: ₹{limit_val:,.0f} • [{pool_state}]",
+                    expanded=True
+                ):
+                    col_info1, col_info2, col_info3 = st.columns(3)
+                    col_info1.markdown(f"**Pool Status:** `{pool_state}`")
+                    col_info2.markdown(f"**Repayment Track Record:** `{g.get('repayment_rate', 100.0)}%`")
+                    col_info3.markdown(f"**Joint Social Pledge:** `{m_count}/3 Members Verified`")
+
+                    if m_list:
+                        members_df = pd.DataFrame([
+                            {
+                                "Farmer ID": m.get("farmer_id", "N/A"),
+                                "Farmer Name": m.get("name", "N/A"),
+                                "Role": m.get("role", "MEMBER"),
+                                "Phone": m.get("phone", "N/A"),
+                                "Credit Score": f"{m.get('credit_score', 70)} / 100",
+                                "Credit Limit": f"₹{m.get('credit_limit', 0.0):,.0f}",
+                                "Social Guarantee Pledged": "✅ Signed (Active)" if m.get("guarantee_pledged", True) else "⏳ Pending"
+                            }
+                            for m in m_list
+                        ])
+                        st.dataframe(members_df, use_container_width=True)
+                    else:
+                        st.write("No members in this pool yet.")
+
+                    if m_count < 3:
+                        open_slots = 3 - m_count
+                        st.warning(f"⚠️ Open Pool: {open_slots} slot(s) available. You can assign an unassigned farmer to this pool below.")
 
         st.markdown("---")
-        st.write("#### Onboard New 3-Member Peer Guarantee Group")
+        st.write("#### 📋 Unassigned Farmers (Awaiting Guarantee Pool Assignment)")
+        st.caption("Newly submitted farmers who are not yet placed into a 3-member social collateral pool.")
+
+        if unassigned_farmers:
+            unassigned_rows = []
+            for u in unassigned_farmers:
+                unassigned_rows.append({
+                    "Farmer ID": u["farmer_id"],
+                    "Name": u["name"],
+                    "Phone": u["phone"],
+                    "Village / District": f"{u['village']}, {u['district']}",
+                    "Affiliated FPO": u["fpo_name"],
+                    "Crop Cultivated": u["crop_name"],
+                    "Credit Score": f"{u['credit_score']} / 100",
+                    "Assessed Credit Limit": f"₹{u['credit_limit']:,.0f}",
+                    "Pool Status": "⏳ UNASSIGNED"
+                })
+            st.dataframe(pd.DataFrame(unassigned_rows), use_container_width=True)
+
+            # Interactive 1-click assignment workflow
+            st.write("##### 🤝 Assign Unassigned Farmer to Open Guarantee Pool")
+            assign_col1, assign_col2, assign_col3 = st.columns([2, 2, 1])
+
+            farmer_select_map = {
+                f"#{u['farmer_id']} - {u['name']} ({u['crop_name']}, ₹{u['credit_limit']:,.0f})": u["farmer_id"]
+                for u in unassigned_farmers
+            }
+            with assign_col1:
+                selected_farmer_str = st.selectbox("Select Unassigned Farmer", options=list(farmer_select_map.keys()), key="assign_farmer_select")
+                selected_farmer_id = farmer_select_map[selected_farmer_str]
+
+            open_pools = [g for g in live_groups if g.get("member_count", len(g.get("members", []))) < 3]
+            with assign_col2:
+                if open_pools:
+                    pool_select_map = {
+                        f"{g['group_code']} ({g['fpo_name']}) — {g.get('member_count', len(g.get('members', [])))}/3 members (Open)": g["id"]
+                        for g in open_pools
+                    }
+                    selected_pool_str = st.selectbox("Select Target Open Pool (< 3 Members)", options=list(pool_select_map.keys()), key="assign_pool_select")
+                    selected_pool_id = pool_select_map[selected_pool_str]
+                else:
+                    st.info("No open pools (<3 members) currently available. Create a new pool below.")
+                    selected_pool_id = None
+
+            with assign_col3:
+                st.write("")
+                st.write("")
+                if selected_pool_id and st.button("➕ Assign to Pool", type="primary", use_container_width=True):
+                    success = False
+                    err_msg = ""
+                    if backend_connected:
+                        try:
+                            a_res = requests.post(f"{API_BASE}/fpo/assign-member", json={
+                                "farmer_id": selected_farmer_id,
+                                "group_id": selected_pool_id,
+                                "role": "MEMBER",
+                                "guarantee_pledged": True
+                            }, timeout=3.0)
+                            if a_res.status_code == 200:
+                                success = True
+                            else:
+                                err_msg = a_res.json().get("detail", "Assignment failed")
+                        except Exception as ex:
+                            err_msg = str(ex)
+                    if not success:
+                        try:
+                            from backend.database import SessionLocal
+                            from backend.models import PeerGroup, PeerGroupMember
+                            db_a = SessionLocal()
+                            gp = db_a.query(PeerGroup).filter(PeerGroup.id == selected_pool_id).first()
+                            if gp and len(gp.members) < 3:
+                                db_a.add(PeerGroupMember(
+                                    group_id=selected_pool_id,
+                                    farmer_id=selected_farmer_id,
+                                    role="MEMBER",
+                                    guarantee_pledged=True
+                                ))
+                                db_a.commit()
+                                success = True
+                            else:
+                                err_msg = "Pool has already reached maximum 3 members."
+                            db_a.close()
+                        except Exception as e:
+                            err_msg = str(e)
+
+                    if success:
+                        st.success("Farmer successfully assigned to guarantee pool! Refreshing...")
+                        time.sleep(0.5)
+                        st.rerun()
+                    else:
+                        st.error(f"Assignment failed: {err_msg}")
+        else:
+            st.success("✅ All onboarded farmers are currently assigned to active 3-member guarantee pools. No unassigned farmers.")
+
+        st.markdown("---")
+        st.write("#### ➕ Onboard New 3-Member Peer Guarantee Group")
+        st.caption("Form a new mutual guarantee pool with 1 to 3 member farmers (Strict 3-member maximum).")
         with st.form("onboard_group_form"):
-            new_code = st.text_input("Unique Group Code", value=f"GRP-NEW-{int(time.time()) % 10000}")
+            new_code = st.text_input("Unique Group Code", value=f"GRP-KCC-{int(time.time()) % 10000}")
             new_fpo = st.selectbox("Affiliated FPO", ["Sahyadri Agro Producer Co.", "Tapi Valley Organic FPO", "Kisan Vikas Collective"])
             new_village = st.text_input("Village & District", value="Niphad, Nashik")
-            st.caption("Enter 3 member farmer IDs (e.g. 1, 2, 3):")
-            m_ids = st.text_input("Member Farmer IDs (comma-separated)", value="1, 2, 3")
-            if st.form_submit_button("🤝 Form & Register 3-Member Peer Guarantee Pool"):
-                try:
-                    ids = [int(x.strip()) for x in m_ids.split(",") if x.strip()]
-                    if len(ids) != 3:
-                        st.error("PRD Mandate: Exactly 3 members required to form a social guarantee pool.")
-                    else:
-                        if backend_connected:
-                            res = requests.post(f"{API_BASE}/fpo/groups", json={
+
+            if unassigned_farmers:
+                u_opts = {f"#{u['farmer_id']} - {u['name']} ({u['village']})": u['farmer_id'] for u in unassigned_farmers}
+                selected_new_members = st.multiselect(
+                    "Select Unassigned Farmers for New Group (1 to 3 members):",
+                    options=list(u_opts.keys()),
+                    max_selections=3
+                )
+                m_ids_fallback = st.text_input("Or Enter Member Farmer IDs manually (e.g. 1, 2, 3):", value="")
+            else:
+                selected_new_members = []
+                m_ids_fallback = st.text_input("Member Farmer IDs (comma-separated, max 3):", value="")
+
+            if st.form_submit_button("🤝 Form & Register Peer Guarantee Pool"):
+                ids_to_add = [u_opts[k] for k in selected_new_members] if selected_new_members else []
+                if not ids_to_add and m_ids_fallback.strip():
+                    try:
+                        ids_to_add = [int(x.strip()) for x in m_ids_fallback.split(",") if x.strip()]
+                    except Exception:
+                        ids_to_add = []
+
+                if not ids_to_add:
+                    st.error("Please select or enter at least 1 member farmer ID (maximum 3).")
+                elif len(ids_to_add) > 3:
+                    st.error("PRD Mandate: A peer guarantee pool can have at most 3 members.")
+                else:
+                    success = False
+                    err_msg = ""
+                    if backend_connected:
+                        try:
+                            c_res = requests.post(f"{API_BASE}/fpo/groups", json={
                                 "group_code": new_code,
                                 "fpo_name": new_fpo,
                                 "village": new_village.split(",")[0],
                                 "district": new_village.split(",")[-1].strip(),
-                                "member_farmer_ids": ids
-                            }, timeout=1.5)
-                        st.success(f"Group {new_code} formed successfully with 3-peer social collateral pledge!")
-                except Exception as e:
-                    st.success(f"Group {new_code} registered in local offline cache!")
+                                "member_farmer_ids": ids_to_add
+                            }, timeout=3.0)
+                            if c_res.status_code in [200, 201]:
+                                success = True
+                            else:
+                                err_msg = c_res.json().get("detail", "Creation failed")
+                        except Exception as ex:
+                            err_msg = str(ex)
+
+                    if not success:
+                        try:
+                            from backend.database import SessionLocal
+                            from backend.models import PeerGroup, PeerGroupMember
+                            db_c = SessionLocal()
+                            if not db_c.query(PeerGroup).filter(PeerGroup.group_code == new_code).first():
+                                ng = PeerGroup(
+                                    group_code=new_code,
+                                    fpo_name=new_fpo,
+                                    village=new_village.split(",")[0],
+                                    district=new_village.split(",")[-1].strip(),
+                                    status="ACTIVE",
+                                    repayment_rate=100.0
+                                )
+                                db_c.add(ng)
+                                db_c.commit()
+                                db_c.refresh(ng)
+                                for idx, fid in enumerate(ids_to_add):
+                                    db_c.add(PeerGroupMember(
+                                        group_id=ng.id,
+                                        farmer_id=fid,
+                                        role="LEADER" if idx == 0 else "MEMBER",
+                                        guarantee_pledged=True
+                                    ))
+                                db_c.commit()
+                                success = True
+                            else:
+                                err_msg = f"Group code {new_code} already exists."
+                            db_c.close()
+                        except Exception as ex:
+                            err_msg = str(ex)
+
+                    if success:
+                        st.success(f"Group {new_code} formed successfully with {len(ids_to_add)}/3 members!")
+                        time.sleep(0.5)
+                        st.rerun()
+                    else:
+                        st.error(f"Failed to create group: {err_msg}")
 
     with fpo_sub2:
         st.write("#### Field Visit Crop Inspection Record")

@@ -6,7 +6,7 @@ import logging
 from datetime import datetime
 
 from backend.database import get_db
-from backend.models import Farmer, CreditAssessment, FarmerStatus
+from backend.models import Farmer, CreditAssessment, FarmerStatus, PeerGroup, PeerGroupMember
 from backend.schemas import UnderwritingCalculateRequest
 from backend.services.underwriting import UnderwritingService
 from backend.services.identity_blockchain import FarmerIdentityService
@@ -72,16 +72,22 @@ async def submit_underwriting_application(
             custom_price=request.custom_price
         )
 
-        # 2. Upsert Farmer
+        # 2. Upsert Farmer with location and FPO affiliation
+        village = request.village or "Pimpalgaon"
+        district = request.district or "Nashik"
+        state = request.state or "Maharashtra"
+        fpo_name = request.fpo_name or "Sahyadri Agro Producer Co."
+
         farmer = db.query(Farmer).filter(Farmer.phone == request.phone).first()
         if not farmer:
             farmer = Farmer(
                 name=request.farmer_name,
                 phone=request.phone,
-                village="Pimpalgaon",
-                district="Nashik",
-                state="Maharashtra",
+                village=village,
+                district=district,
+                state=state,
                 land_size_acres=request.acres,
+                fpo_name=fpo_name,
                 status=FarmerStatus.ACTIVE
             )
             db.add(farmer)
@@ -90,7 +96,67 @@ async def submit_underwriting_application(
         else:
             farmer.name = request.farmer_name
             farmer.land_size_acres = request.acres
+            farmer.village = village
+            farmer.district = district
+            farmer.state = state
+            farmer.fpo_name = fpo_name
             db.commit()
+            db.refresh(farmer)
+
+        # 2b. Guarantee Pool Assignment (enforcing 3-member limit)
+        pool_assignment = {
+            "assigned": False,
+            "pool_id": None,
+            "pool_code": None,
+            "status": "UNASSIGNED",
+            "message": "Farmer saved as unassigned (awaiting 3-member guarantee pool assignment in FPO Console)."
+        }
+
+        target_pool = None
+        if request.target_pool_id:
+            target_pool = db.query(PeerGroup).filter(PeerGroup.id == request.target_pool_id).first()
+        elif request.group_code:
+            target_pool = db.query(PeerGroup).filter(PeerGroup.group_code == request.group_code).first()
+
+        if target_pool:
+            existing_m = db.query(PeerGroupMember).filter(
+                PeerGroupMember.group_id == target_pool.id,
+                PeerGroupMember.farmer_id == farmer.id
+            ).first()
+            if existing_m:
+                pool_assignment = {
+                    "assigned": True,
+                    "pool_id": target_pool.id,
+                    "pool_code": target_pool.group_code,
+                    "status": "ACTIVE_MEMBER",
+                    "message": f"Farmer is an active member of pool {target_pool.group_code}."
+                }
+            elif len(target_pool.members) < 3:
+                role = "LEADER" if len(target_pool.members) == 0 else "MEMBER"
+                new_m = PeerGroupMember(
+                    group_id=target_pool.id,
+                    farmer_id=farmer.id,
+                    role=role,
+                    guarantee_pledged=True
+                )
+                db.add(new_m)
+                db.commit()
+                db.refresh(target_pool)
+                pool_assignment = {
+                    "assigned": True,
+                    "pool_id": target_pool.id,
+                    "pool_code": target_pool.group_code,
+                    "status": "ASSIGNED",
+                    "message": f"Farmer successfully linked to pool {target_pool.group_code} ({len(target_pool.members)}/3 members)."
+                }
+            else:
+                pool_assignment = {
+                    "assigned": False,
+                    "pool_id": target_pool.id,
+                    "pool_code": target_pool.group_code,
+                    "status": "POOL_FULL_UNASSIGNED",
+                    "message": f"Selected pool {target_pool.group_code} is full (3/3). Farmer saved as unassigned."
+                }
 
         # Parse bullet repayment date
         bullet_date = datetime.strptime(
@@ -133,7 +199,7 @@ async def submit_underwriting_application(
             credit_limit=result["credit_limit"],
             bullet_due_date=result["amortization"]["bullet_due_date"],
             peer_guarantors=["Peer Guarantor 1", "Peer Guarantor 2", "Peer Guarantor 3"],
-            fpo_name="Sahyadri Agro Producer Co."
+            fpo_name=farmer.fpo_name or "Sahyadri Agro Producer Co."
         )
 
         # 5. Mandi & Harvest alerts
@@ -143,6 +209,7 @@ async def submit_underwriting_application(
             "farmer_id": farmer.id,
             "assessment_id": db_assessment.id,
             "underwriting_result": result,
+            "pool_assignment": pool_assignment,
             "verifiable_credential": vc,
             "proactive_alerts": alerts,
             "status": "ASSESSMENT_PERSISTED_READY_FOR_LENDER"

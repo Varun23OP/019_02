@@ -113,6 +113,12 @@ class CreditAssessmentResponse(CreditAssessmentBase):
 class UnderwritingCalculateRequest(BaseModel):
     farmer_name: str
     phone: str
+    village: Optional[str] = "Pimpalgaon"
+    district: Optional[str] = "Nashik"
+    state: Optional[str] = "Maharashtra"
+    fpo_name: Optional[str] = None
+    target_pool_id: Optional[int] = None
+    group_code: Optional[str] = None
     crop_name: str
     acres: float = Field(..., gt=0, le=10.0)
     projected_yield: float = Field(..., gt=0)
@@ -131,7 +137,14 @@ class PeerGroupCreate(BaseModel):
     fpo_name: str
     village: str
     district: str
-    member_farmer_ids: List[int] = Field(..., min_length=1, max_length=5)
+    member_farmer_ids: List[int] = Field(..., min_length=1, max_length=3)
+
+
+class AssignPeerGroupMemberRequest(BaseModel):
+    farmer_id: int
+    group_id: int
+    role: Optional[str] = "MEMBER"
+    guarantee_pledged: bool = True
 
 
 class PeerGroupMemberResponse(BaseModel):
