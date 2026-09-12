@@ -1,0 +1,54 @@
+{
+  "source": "Kisan Call Centre (KCC) & ICAR Crop Disease Platform (data.gov.in)",
+  "version": "AGRI-NLP-ICAR-2026",
+  "kcc_insights": [
+    {
+      "category": "Pest & Disease Advisory",
+      "farmer_query_samples": [
+        "Whitefly infestation on Tomato leaves - what organic neem spray dosage?",
+        "Purple blotch prevention on Nashik Red Onion before monsoon",
+        "Thrips attack on Guntur chilli crop during flowering stage"
+      ],
+      "advisory_engagement_weight": 1.10,
+      "description": "Farmers actively seeking agronomic guidance demonstrate 34% lower crop loss and higher credit discipline."
+    },
+    {
+      "category": "Market & Mandi Price Intelligence",
+      "farmer_query_samples": [
+        "Expected price trend for Lasalgaon onion in next 3 weeks",
+        "Kolar APMC vs Bangalore Yeshwanthpur mandi price difference"
+      ],
+      "advisory_engagement_weight": 1.08,
+      "description": "Demonstrates forward-looking market synchronization for harvest sales."
+    }
+  ],
+  "icar_active_disease_alerts": [
+    {
+      "alert_id": "ICAR-2026-DIS-09",
+      "crop": "Tomato",
+      "disease_name": "Early Blight (Alternaria solani)",
+      "affected_districts": ["Kolar", "Chittoor"],
+      "severity": "Mild (Controlled)",
+      "recommended_action": "Copper oxychloride spray @ 2.5g/L; Drip fertigation optimization",
+      "credit_risk_impact": "Negligible (<2% yield risk if advisory followed)"
+    },
+    {
+      "alert_id": "ICAR-2026-DIS-14",
+      "crop": "Chilli (Dry)",
+      "disease_name": "Black Thrips (Thrips parvispinus)",
+      "affected_districts": ["Guntur", "Khammam"],
+      "severity": "Moderate (Monitored)",
+      "recommended_action": "Blue sticky traps + Spinetoram bio-spray",
+      "credit_risk_impact": "Mitigated with FPO bulk bio-input kit"
+    },
+    {
+      "alert_id": "ICAR-2026-DIS-22",
+      "crop": "Onion",
+      "disease_name": "Stemphylium Leaf Blight",
+      "affected_districts": ["Nashik", "Indore"],
+      "severity": "Low",
+      "recommended_action": "Prophylactic Mancozeb spray",
+      "credit_risk_impact": "Minimal"
+    }
+  ]
+}

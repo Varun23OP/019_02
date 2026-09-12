@@ -1,0 +1,61 @@
+{
+  "source": "Pradhan Mantri Fasal Bima Yojana (PMFBY) Open Data Portal",
+  "version": "PMFBY-ACTUARIAL-RISK-2026",
+  "district_risk_profiles": [
+    {
+      "state": "Maharashtra",
+      "district": "Nashik",
+      "major_crops": ["Onion", "Tomato", "Grapes"],
+      "claims_loss_ratio_5yr_avg": 0.32,
+      "climate_hazard_index": "Low-Moderate (0.28)",
+      "primary_hazard": "Unseasonal Hailstorm in Feb/Mar",
+      "sum_insured_hectare_inr": 85000,
+      "risk_adjustment_factor": 1.02,
+      "insurance_coverage_rate_percent": 86.4
+    },
+    {
+      "state": "Karnataka",
+      "district": "Kolar",
+      "major_crops": ["Tomato", "Potato"],
+      "claims_loss_ratio_5yr_avg": 0.38,
+      "climate_hazard_index": "Moderate (0.35)",
+      "primary_hazard": "Borewell recharge / Dry spell in May",
+      "sum_insured_hectare_inr": 72000,
+      "risk_adjustment_factor": 0.98,
+      "insurance_coverage_rate_percent": 81.2
+    },
+    {
+      "state": "Andhra Pradesh",
+      "district": "Guntur",
+      "major_crops": ["Chilli (Dry)", "Cotton", "Turmeric"],
+      "claims_loss_ratio_5yr_avg": 0.24,
+      "climate_hazard_index": "Low (0.21)",
+      "primary_hazard": "Cyclone heavy rainfall in Nov",
+      "sum_insured_hectare_inr": 95000,
+      "risk_adjustment_factor": 1.05,
+      "insurance_coverage_rate_percent": 91.0
+    },
+    {
+      "state": "Uttar Pradesh",
+      "district": "Agra",
+      "major_crops": ["Potato", "Mustard"],
+      "claims_loss_ratio_5yr_avg": 0.41,
+      "climate_hazard_index": "Moderate (0.39)",
+      "primary_hazard": "Cold wave / Late Blight risk",
+      "sum_insured_hectare_inr": 68000,
+      "risk_adjustment_factor": 0.96,
+      "insurance_coverage_rate_percent": 79.5
+    },
+    {
+      "state": "Tamil Nadu",
+      "district": "Salem",
+      "major_crops": ["Turmeric", "Tapioca"],
+      "claims_loss_ratio_5yr_avg": 0.22,
+      "climate_hazard_index": "Low (0.19)",
+      "primary_hazard": "Monsoon delay in July",
+      "sum_insured_hectare_inr": 92000,
+      "risk_adjustment_factor": 1.06,
+      "insurance_coverage_rate_percent": 93.8
+    }
+  ]
+}

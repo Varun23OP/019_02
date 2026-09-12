@@ -1,0 +1,170 @@
+{
+  "source": "National Horticulture Board (NHB) Indian Horticulture Database",
+  "version": "NHB-2026-DISTRICT-NORMS",
+  "crops": [
+    {
+      "crop_name": "Tomato",
+      "category": "Vegetable",
+      "national_avg_yield_qtl_acre": 85.0,
+      "state_district_yields": {
+        "Maharashtra_Nashik": 98.0,
+        "Karnataka_Kolar": 110.0,
+        "Andhra Pradesh_Chittoor": 105.0,
+        "Uttar Pradesh_Varanasi": 78.0
+      },
+      "standard_cost_per_acre_inr": 38000,
+      "growth_duration_days": 105,
+      "input_breakdown": {
+        "seeds_nursery_percent": 25,
+        "fertilizer_compost_percent": 30,
+        "micro_irrigation_power_percent": 20,
+        "harvest_labour_percent": 25
+      },
+      "drip_yield_boost": 1.18,
+      "rainfed_yield_penalty": 0.82
+    },
+    {
+      "crop_name": "Onion",
+      "category": "Vegetable",
+      "national_avg_yield_qtl_acre": 72.0,
+      "state_district_yields": {
+        "Maharashtra_Nashik": 88.0,
+        "Madhya Pradesh_Indore": 80.0,
+        "Karnataka_Bagalkot": 74.0,
+        "Gujarat_Bhavnagar": 82.0
+      },
+      "standard_cost_per_acre_inr": 32000,
+      "growth_duration_days": 120,
+      "input_breakdown": {
+        "seeds_nursery_percent": 22,
+        "fertilizer_compost_percent": 32,
+        "micro_irrigation_power_percent": 22,
+        "harvest_labour_percent": 24
+      },
+      "drip_yield_boost": 1.15,
+      "rainfed_yield_penalty": 0.85
+    },
+    {
+      "crop_name": "Potato",
+      "category": "Vegetable / Tuber",
+      "national_avg_yield_qtl_acre": 95.0,
+      "state_district_yields": {
+        "Uttar Pradesh_Agra": 115.0,
+        "Punjab_Jalandhar": 125.0,
+        "West Bengal_Hooghly": 118.0,
+        "Karnataka_Chikkaballapur": 84.0
+      },
+      "standard_cost_per_acre_inr": 42000,
+      "growth_duration_days": 90,
+      "input_breakdown": {
+        "seeds_nursery_percent": 38,
+        "fertilizer_compost_percent": 28,
+        "micro_irrigation_power_percent": 14,
+        "harvest_labour_percent": 20
+      },
+      "drip_yield_boost": 1.12,
+      "rainfed_yield_penalty": 0.88
+    },
+    {
+      "crop_name": "Grapes",
+      "category": "Fruit",
+      "national_avg_yield_qtl_acre": 80.0,
+      "state_district_yields": {
+        "Maharashtra_Nashik": 105.0,
+        "Maharashtra_Sangli": 100.0,
+        "Karnataka_Vijayapura": 86.0
+      },
+      "standard_cost_per_acre_inr": 68000,
+      "growth_duration_days": 150,
+      "input_breakdown": {
+        "seeds_nursery_percent": 15,
+        "fertilizer_compost_percent": 35,
+        "micro_irrigation_power_percent": 25,
+        "harvest_labour_percent": 25
+      },
+      "drip_yield_boost": 1.22,
+      "rainfed_yield_penalty": 0.75
+    },
+    {
+      "crop_name": "Chilli (Dry)",
+      "category": "Spice / Cash Crop",
+      "national_avg_yield_qtl_acre": 16.0,
+      "state_district_yields": {
+        "Andhra Pradesh_Guntur": 22.5,
+        "Telangana_Khammam": 20.0,
+        "Karnataka_Bellary": 18.0,
+        "Madhya Pradesh_Khargone": 17.5
+      },
+      "standard_cost_per_acre_inr": 45000,
+      "growth_duration_days": 140,
+      "input_breakdown": {
+        "seeds_nursery_percent": 20,
+        "fertilizer_compost_percent": 35,
+        "micro_irrigation_power_percent": 20,
+        "harvest_labour_percent": 25
+      },
+      "drip_yield_boost": 1.20,
+      "rainfed_yield_penalty": 0.80
+    },
+    {
+      "crop_name": "Pomegranate",
+      "category": "Fruit",
+      "national_avg_yield_qtl_acre": 45.0,
+      "state_district_yields": {
+        "Maharashtra_Solapur": 56.0,
+        "Andhra Pradesh_Anantapur": 52.0,
+        "Karnataka_Koppal": 48.0
+      },
+      "standard_cost_per_acre_inr": 55000,
+      "growth_duration_days": 180,
+      "input_breakdown": {
+        "seeds_nursery_percent": 15,
+        "fertilizer_compost_percent": 35,
+        "micro_irrigation_power_percent": 25,
+        "harvest_labour_percent": 25
+      },
+      "drip_yield_boost": 1.25,
+      "rainfed_yield_penalty": 0.70
+    },
+    {
+      "crop_name": "Turmeric",
+      "category": "Spice / Commercial",
+      "national_avg_yield_qtl_acre": 24.0,
+      "state_district_yields": {
+        "Tamil Nadu_Salem": 32.0,
+        "Telangana_Nizamabad": 30.0,
+        "Maharashtra_Sangli": 28.0
+      },
+      "standard_cost_per_acre_inr": 48000,
+      "growth_duration_days": 210,
+      "input_breakdown": {
+        "seeds_nursery_percent": 30,
+        "fertilizer_compost_percent": 30,
+        "micro_irrigation_power_percent": 20,
+        "harvest_labour_percent": 20
+      },
+      "drip_yield_boost": 1.15,
+      "rainfed_yield_penalty": 0.85
+    },
+    {
+      "crop_name": "Cauliflower",
+      "category": "Vegetable",
+      "national_avg_yield_qtl_acre": 65.0,
+      "state_district_yields": {
+        "Uttar Pradesh_Varanasi": 74.0,
+        "Bihar_Vaishali": 70.0,
+        "West Bengal_Nadia": 72.0
+      },
+      "standard_cost_per_acre_inr": 28000,
+      "growth_duration_days": 80,
+      "input_breakdown": {
+        "seeds_nursery_percent": 25,
+        "fertilizer_compost_percent": 30,
+        "micro_irrigation_power_percent": 20,
+        "harvest_labour_percent": 25
+      },
+      "drip_yield_boost": 1.12,
+      "rainfed_yield_penalty": 0.88
+    }
+  ]
+}

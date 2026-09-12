@@ -1,0 +1,72 @@
+{
+  "source": "Open Government Data (OGD) Platform India - data.gov.in",
+  "dataset_title": "Village-wise PM-KISAN Samman Nidhi Beneficiary & Aadhaar Seeding Register",
+  "last_updated": "2026-09-01",
+  "villages": [
+    {
+      "village_code": "VIL-MH-NAS-01",
+      "village_name": "Pimpalgaon Baswant",
+      "district": "Nashik",
+      "state": "Maharashtra",
+      "total_registered_farmers": 1420,
+      "marginal_farmers_under_2_5_acres": 980,
+      "aadhaar_seeding_rate_percent": 98.4,
+      "e_kyc_completed_percent": 96.2,
+      "dbt_success_rate_percent": 99.1,
+      "active_fpo_name": "Sahyadri Farmer Producer Co. Ltd.",
+      "fpo_guarantee_track_record": "Excellent (94% on-time repayment)"
+    },
+    {
+      "village_code": "VIL-KA-KOL-02",
+      "village_name": "Vemagal Rural",
+      "district": "Kolar",
+      "state": "Karnataka",
+      "total_registered_farmers": 1150,
+      "marginal_farmers_under_2_5_acres": 840,
+      "aadhaar_seeding_rate_percent": 97.8,
+      "e_kyc_completed_percent": 94.5,
+      "dbt_success_rate_percent": 98.6,
+      "active_fpo_name": "Kolar Horticulture Farmers Collective",
+      "fpo_guarantee_track_record": "High (91% on-time repayment)"
+    },
+    {
+      "village_code": "VIL-AP-GUN-03",
+      "village_name": "Mangalagiri Rural",
+      "district": "Guntur",
+      "state": "Andhra Pradesh",
+      "total_registered_farmers": 1890,
+      "marginal_farmers_under_2_5_acres": 1320,
+      "aadhaar_seeding_rate_percent": 99.2,
+      "e_kyc_completed_percent": 98.0,
+      "dbt_success_rate_percent": 99.4,
+      "active_fpo_name": "Guntur Spices & Chilli Producers FPO",
+      "fpo_guarantee_track_record": "Superior (96% on-time repayment)"
+    },
+    {
+      "village_code": "VIL-UP-AGR-04",
+      "village_name": "Fatehabad Taluq",
+      "district": "Agra",
+      "state": "Uttar Pradesh",
+      "total_registered_farmers": 1650,
+      "marginal_farmers_under_2_5_acres": 1190,
+      "aadhaar_seeding_rate_percent": 95.2,
+      "e_kyc_completed_percent": 92.1,
+      "dbt_success_rate_percent": 96.8,
+      "active_fpo_name": "Braj Bhoomi Potato Farmers Association",
+      "fpo_guarantee_track_record": "Good (88% on-time repayment)"
+    },
+    {
+      "village_code": "VIL-TN-SAL-05",
+      "village_name": "Attur Sub-district",
+      "district": "Salem",
+      "state": "Tamil Nadu",
+      "total_registered_farmers": 1280,
+      "marginal_farmers_under_2_5_acres": 910,
+      "aadhaar_seeding_rate_percent": 99.0,
+      "e_kyc_completed_percent": 97.4,
+      "dbt_success_rate_percent": 99.2,
+      "active_fpo_name": "Salem Turmeric & Spices FPC",
+      "fpo_guarantee_track_record": "Excellent (95% on-time repayment)"
+    }
+  ]
+}
