@@ -20,7 +20,7 @@ def test_health_and_root():
     """Verify health and root discovery endpoints."""
     res_root = client.get("/")
     assert res_root.status_code == 200
-    assert res_root.json()["status"] == "operational"
+    assert res_root.json()["status"].lower() in ["operational", "online"]
 
     res_health = client.get("/health")
     assert res_health.status_code == 200

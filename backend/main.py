@@ -1,3 +1,7 @@
+"""
+KisanSetu Backend Application (FastAPI)
+"""
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
@@ -10,7 +14,9 @@ from backend.routers import (
     lenders,
     market_data,
     voice_intake,
-    identity
+    identity,
+    datasets,
+    voice
 )
 from backend.config import settings
 from backend.database import engine, Base
@@ -34,13 +40,13 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="KisanSetu Financial Infrastructure API",
+    title="KisanSetu Financial Infrastructure & Agronomic Underwriting API",
     description="Community-Owned Credit Network for Marginal Farmers: Deterministic Agronomic Underwriting, FPO 3-Peer Social Collateral, Harvest Bullet Repayment",
     version="2.0.0",
     lifespan=lifespan
 )
 
-# CORS configuration
+# CORS Middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -58,14 +64,19 @@ app.include_router(market_data.router, prefix="/api/v1/market-data", tags=["Agri
 app.include_router(voice_intake.router, prefix="/api/v1/voice", tags=["Multilingual Voice Intake"])
 app.include_router(identity.router, prefix="/api/v1/identity", tags=["Identity, DID & GDPR"])
 
+# Legacy / Conversational Routers from origin
+app.include_router(datasets.router)
+app.include_router(voice.router)
+
 
 @app.get("/")
 async def root():
     """Root endpoint with API capabilities overview"""
     return {
-        "message": "KisanSetu Community-Owned Credit Network API",
+        "service": "KisanSetu Dynamic Agronomic Credit Engine",
+        "status": "ONLINE",
         "version": "2.0.0",
-        "status": "operational",
+        "docs_url": "/docs",
         "features": {
             "deterministic_underwriting": "Acres × Yield × Price, 0.45 × Net Profit, 0-100 Explainable Score",
             "agri_data_integration": "AGMARKNET Mandi Modal Prices, NHB District Yields, PMFBY Records",
@@ -74,7 +85,15 @@ async def root():
             "voice_intake": "10+ Regional Languages with Transcript-to-Field Mapping",
             "portable_identity": "W3C Verifiable Credentials & GDPR Compliance"
         },
-        "docs_url": "/docs"
+        "datasets_integrated": [
+            "AGMARKNET 2.0 Live Mandi Prices",
+            "NHB 90th-Percentile Yield Ceilings",
+            "CACP Crop Cultivation Schedules",
+            "Open-Meteo Micro-Climate Telemetry",
+            "PM-KISAN OGD Registry",
+            "FPO Joint-Liability Exposure Caps",
+            "e-NAM & WDRA e-NWR Settlement Tracking"
+        ]
     }
 
 
@@ -85,3 +104,8 @@ async def health_check():
         "status": "healthy",
         "timestamp": logging.time.strftime("%Y-%m-%dT%H:%M:%SZ", logging.time.gmtime())
     }
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("backend.main:app", host="0.0.0.0", port=8000, reload=True)

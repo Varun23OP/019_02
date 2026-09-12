@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KisanTrust | Community-Owned Agricultural Credit Network</title>
+  <meta name="description" content="Digital public infrastructure enabling marginal farmers to access 9-11% collateral-free institutional credit based on transparent crop cashflow, AGMARKNET/NHB datasets, and FPO 3-peer social collateral.">
+  
+  <!-- Premium Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="light-theme">
+  <!-- Government / Institutional Header Banner -->
+  <div class="gov-topbar">
+    <div class="topbar-inner">
+      <div class="gov-badge">
+        <span class="gov-flag">🇮🇳</span>
+        <span>Public Digital Infrastructure for Agricultural Credit</span>
+      </div>
+      <div class="gov-links">
+        <span class="live-indicator"><span class="dot"></span> Live Data: AGMARKNET 2.0 • NHB • PM-KISAN • PMFBY</span>
+        <span class="dbt-pill"><i class="fa-solid fa-building-columns"></i> Direct Benefit Transfer (DBT) Ready</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Primary Application Navigation -->
+  <header class="navbar">
+    <div class="nav-container">
+      <div class="nav-brand">
+        <div class="brand-emblem">
+          <i class="fa-solid fa-seedling"></i>
+        </div>
+        <div class="brand-titles">
+          <div class="brand-name">Kisan<span class="brand-highlight">Trust</span></div>
+          <div class="brand-tagline">Community-Owned Agri Credit Network</div>
+        </div>
+      </div>
+
+      <nav class="nav-tabs" id="main-nav-tabs">
+        <button class="nav-tab active" data-tab="tab-farmer" id="tab-btn-farmer">
+          <i class="fa-solid fa-tractor"></i> Marginal Farmer
+        </button>
+        <button class="nav-tab" data-tab="tab-fpo" id="tab-btn-fpo">
+          <i class="fa-solid fa-users-rays"></i> FPO Guarantee Hub
+        </button>
+        <button class="nav-tab" data-tab="tab-bank" id="tab-btn-bank">
+          <i class="fa-solid fa-landmark"></i> Bank Underwriting Desk
+        </button>
+        <button class="nav-tab" data-tab="tab-data" id="tab-btn-data">
+          <i class="fa-solid fa-chart-line"></i> Agri Data Explorer
+        </button>
+      </nav>
+
+      <div class="nav-actions">
+        <div class="lang-selector-box">
+          <i class="fa-solid fa-globe"></i>
+          <select id="select-language" aria-label="Language Selector">
+            <option value="en">English</option>
+            <option value="hi">हिंदी (Hindi)</option>
+            <option value="gu">ગુજરાતી (Gujarati)</option>
+            <option value="mr">मराठी (Marathi)</option>
+            <option value="te">తెలుగు (Telugu)</option>
+            <option value="ta">தமிழ் (Tamil)</option>
+            <option value="bn">বাংলা (Bengali)</option>
+            <option value="pa">ਪੰਜਾਬੀ (Punjabi)</option>
+            <option value="kn">ಕನ್ನಡ (Kannada)</option>
+          </select>
+        </div>
+        <button id="theme-btn" class="theme-toggle-btn" title="Toggle Light/Dark Theme" aria-label="Toggle Theme">
+          <i class="fa-solid fa-moon"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Application Body -->
+  <main class="app-main">
+
+    <!-- ============================================================== -->
+    <!-- TAB 1: MARGINAL FARMER CASHFLOW & CREDIT INTAKE                -->
+    <!-- ============================================================== -->
+    <section id="tab-farmer" class="tab-view active">
+      <!-- Section Intro & Highlights -->
+      <div class="view-header">
+        <div class="view-header-left">
+          <span class="section-kicker">Kisan Credit Portal</span>
+          <h1 class="section-heading" id="lbl-farmer-heading">Collateral-Free Institutional Credit for Marginal Farmers</h1>
+          <p class="section-lead" id="lbl-farmer-lead">Access priority credit at 9.0% – 10.5% interest with zero land titles (*patta*) required. Underwriting is based on your expected crop cashflow, AGMARKNET market prices, and FPO 3-peer social guarantee.</p>
+        </div>
+        <div class="header-metric-cards">
+          <div class="metric-card">
+            <div class="metric-num text-success">9.0% - 10.5%</div>
+            <div class="metric-label">Institutional Interest Rate</div>
+            <div class="metric-sub">Save ~₹14,800 vs moneylenders</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-num text-primary">72 Hours</div>
+            <div class="metric-label">Direct DBT Disbursal</div>
+            <div class="metric-sub">Zero paperwork / No land mortgage</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-num text-warning">Harvest Bullet</div>
+            <div class="metric-label">Repayment Schedule</div>
+            <div class="metric-sub">Pay after crop sale in Mandi</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Multilingual Voice Intake Assistant -->
+      <div class="card voice-intake-card">
+        <div class="voice-card-left">
+          <div class="voice-avatar" id="btn-voice-mic" title="Click to Speak">
+            <i class="fa-solid fa-microphone-lines" id="mic-icon-svg"></i>
+          </div>
+          <div class="voice-content">
+            <div class="voice-badge-tag"><i class="fa-solid fa-headset"></i> Kisan Vani Multilingual Voice Assistant</div>
+            <h3 class="voice-prompt-title" id="txt-voice-title">Speak or Click to Simulate Loan Intake</h3>
+            <p class="voice-prompt-msg" id="txt-voice-msg">"Namaste Ramesh ji! Tell us which crop you are cultivating and your land area to calculate your approved credit limit."</p>
+          </div>
+        </div>
+        <div class="voice-card-right">
+          <button class="btn btn-primary" id="btn-trigger-voice"><i class="fa-solid fa-microphone"></i> <span id="lbl-voice-btn">Speak Crop Details</span></button>
+          <button class="btn btn-secondary" id="btn-speak-summary"><i class="fa-solid fa-volume-high"></i> Listen Explanation</button>
+        </div>
+        <div class="voice-quick-queries">
+          <span class="quick-label">Try preset farmer profiles:</span>
+          <button class="chip" data-preset="tomato_nashik">🍅 Ramesh Patil: 1.5 Ac Tomato (Nashik, MH)</button>
+          <button class="chip" data-preset="chilli_guntur">🌶️ Samba Rao: 2.0 Ac Chilli (Guntur, AP)</button>
+          <button class="chip" data-preset="potato_agra">🥔 Ram Naresh: 2.2 Ac Potato (Agra, UP)</button>
+          <button class="chip" data-preset="turmeric_salem">🌿 Murugan: 1.8 Ac Turmeric (Salem, TN)</button>
+          <button class="chip" data-preset="onion_lasalgaon">🧅 Suresh Jadhav: 1.2 Ac Onion (Nashik, MH)</button>
+        </div>
+      </div>
+
+      <!-- Main Farmer Interactive Two-Column Grid -->
+      <div class="two-col-grid">
+        <!-- Left: Crop & Land Input Form -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title"><i class="fa-solid fa-sliders"></i> Crop & Farm Cashflow Parameters</div>
+            <span class="status-badge status-info"><i class="fa-solid fa-fingerprint"></i> Self-Sovereign Identity</span>
+          </div>
+          <div class="card-body">
+            <form id="form-credit-calc" onsubmit="return false;">
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <label for="input-farmer-name">Farmer Full Name</label>
+                  <input type="text" id="input-farmer-name" class="form-control" value="Ramesh Tukaram Patil">
+                </div>
+                <div class="form-group">
+                  <label for="input-farmer-phone">DBT-Linked Mobile Number</label>
+                  <input type="text" id="input-farmer-phone" class="form-control" value="+91 98223 45678">
+                </div>
+              </div>
+
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <label for="select-mandi-district">State & Mandi APMC Location</label>
+                  <select id="select-mandi-district" class="form-control">
+                    <option value="Maharashtra_Nashik">Maharashtra - Nashik (Pimpalgaon / Lasalgaon APMC)</option>
+                    <option value="Karnataka_Kolar">Karnataka - Kolar (Kolar APMC Yard)</option>
+                    <option value="Andhra Pradesh_Guntur">Andhra Pradesh - Guntur (Guntur Mirchi Yard)</option>
+                    <option value="Uttar Pradesh_Agra">Uttar Pradesh - Agra (Fatehabad / Agra APMC)</option>
+                    <option value="Tamil Nadu_Salem">Tamil Nadu - Salem (Salem APMC Yard)</option>
+                    <option value="Madhya Pradesh_Indore">Madhya Pradesh - Indore (Choithram Mandi)</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="select-crop">Cultivated Crop</label>
+                  <select id="select-crop" class="form-control">
+                    <option value="Tomato">Tomato (Hybrid Vaishali)</option>
+                    <option value="Onion">Onion (Nashik Red)</option>
+                    <option value="Grapes">Grapes (Thomson Seedless)</option>
+                    <option value="Chilli (Dry)">Chilli (Dry - Teja/S17)</option>
+                    <option value="Potato">Potato (Kufri Bahar)</option>
+                    <option value="Turmeric">Turmeric (Salem Finger)</option>
+                    <option value="Pomegranate">Pomegranate (Bhagwa)</option>
+                    <option value="Cauliflower">Cauliflower (Snowball)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-group slider-box">
+                <div class="slider-header">
+                  <label for="slider-land-acres">Cultivated Land Area (Marginal Farmers &lt; 2.5 Acres)</label>
+                  <span class="slider-val" id="lbl-acres-val">1.5 Acres</span>
+                </div>
+                <input type="range" id="slider-land-acres" min="0.5" max="2.5" step="0.1" value="1.5" class="range-slider">
+                <div class="slider-marks">
+                  <span>0.5 Acre</span>
+                  <span>1.0 Acre</span>
+                  <span>1.5 Acre</span>
+                  <span>2.0 Acre</span>
+                  <span>2.5 Acre (Marginal Cap)</span>
+                </div>
+              </div>
+
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <label for="select-irrigation">Irrigation Facility</label>
+                  <select id="select-irrigation" class="form-control">
+                    <option value="Drip">Micro-Drip Irrigation (+18% Yield Boost)</option>
+                    <option value="Canal">Canal / Borewell (Standard Yield Baseline)</option>
+                    <option value="Rainfed">Rainfed / Dryland (-15% Climate Buffer)</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="select-peer-count">FPO 3-Peer Guarantee Status</label>
+                  <select id="select-peer-count" class="form-control">
+                    <option value="3">3 Verified Peers Endorsed (1.08x Factor)</option>
+                    <option value="2">2 Peers Endorsed (1.00x Base Factor)</option>
+                    <option value="1">1 Peer / Standalone (0.90x Multiplier)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="checkbox-stack">
+                <label class="custom-checkbox">
+                  <input type="checkbox" id="chk-pmkisan-verify" checked>
+                  <span class="checkbox-mark"></span>
+                  <span><strong>PM-KISAN DBT Beneficiary Verified</strong> (Verified via data.gov.in API)</span>
+                </label>
+                <label class="custom-checkbox">
+                  <input type="checkbox" id="chk-pmfby-enroll" checked>
+                  <span class="checkbox-mark"></span>
+                  <span><strong>PMFBY Crop Insurance Enrolled</strong> (Automatic Actuarial Risk Protection)</span>
+                </label>
+              </div>
+
+              <button type="button" class="btn btn-primary btn-block" id="btn-calc-credit">
+                <i class="fa-solid fa-calculator"></i> Calculate Transparent Credit Sizing
+              </button>
+            </form>
+          </div>
+        </div>
+
+        <!-- Right: Transparent Explainable Credit Sizing & Tranches -->
+        <div class="card card-accent">
+          <div class="card-header">
+            <div class="card-title"><i class="fa-solid fa-award"></i> Transparent Credit Limit Sizing</div>
+            <span class="rating-pill" id="badge-credit-grade">Grade AAA Prime</span>
+          </div>
+
+          <div class="credit-banner">
+            <div class="credit-banner-left">
+              <span class="credit-banner-kicker">Sanctioned Credit Limit</span>
+              <div class="credit-amount-hero" id="txt-credit-limit">₹ 1,02,400</div>
+              <div class="credit-formula-caption">Formula: <code>Credit Limit = 0.45 × Estimated Net Profit</code></div>
+            </div>
+            <div class="credit-score-widget">
+              <div class="score-radial">
+                <span class="score-val" id="txt-trust-score">91</span>
+                <span class="score-sub">/100</span>
+              </div>
+              <span class="score-name">Community Trust Score</span>
+            </div>
+          </div>
+
+          <!-- Step-by-Step Mathematical Transparency Breakdown -->
+          <div class="breakdown-card">
+            <div class="breakdown-title"><i class="fa-solid fa-square-root-variable"></i> Explainable Cashflow Calculation:</div>
+            
+            <div class="breakdown-row">
+              <span class="row-lbl">1. Expected Harvest Yield (NHB District Baseline)</span>
+              <span class="row-num" id="calc-step-yield">1.5 Ac × 115.6 Qtl/Ac = 173.4 Quintals</span>
+            </div>
+            <div class="breakdown-row">
+              <span class="row-lbl">2. Gross Revenue (Yield × AGMARKNET Modal Price)</span>
+              <span class="row-num" id="calc-step-revenue">173.4 Qtl × ₹1,850/Qtl = ₹ 3,20,790</span>
+            </div>
+            <div class="breakdown-row">
+              <span class="row-lbl">3. Estimated Cultivation Cost (NHB Input Norms)</span>
+              <span class="row-num text-danger" id="calc-step-cost">- ₹ 57,000 (₹38,000 / Acre)</span>
+            </div>
+            <div class="breakdown-row row-total">
+              <span class="row-lbl">4. Estimated Net Harvest Profit</span>
+              <span class="row-num text-success" id="calc-step-profit">= ₹ 2,63,790</span>
+            </div>
+            <div class="breakdown-row">
+              <span class="row-lbl">5. Base Limit (45% Cashflow Capacity)</span>
+              <span class="row-num" id="calc-step-base">0.45 × ₹2,63,790 = ₹ 1,18,705</span>
+            </div>
+            <div class="breakdown-row">
+              <span class="row-lbl">6. FPO 3-Peer Guarantee Multiplier</span>
+              <span class="row-num text-primary" id="calc-step-fpo">× 1.08 (3 Verified Neighbors)</span>
+            </div>
+          </div>
+
+          <!-- Savings Alert Box -->
+          <div class="savings-box">
+            <div class="savings-icon"><i class="fa-solid fa-coins"></i></div>
+            <div class="savings-body">
+              <div class="savings-head">Subsidized Bank Rate: <strong class="text-success" id="txt-interest-rate">9.0% p.a.</strong> (Harvest Bullet Repayment)</div>
+              <p class="savings-desc">Compared to informal village moneylenders charging 48% p.a., you save approximately <strong class="text-success" id="txt-interest-savings">₹ 14,800</strong> in interest expenses.</p>
+            </div>
+          </div>
+
+          <!-- Milestone-gated Input Tranches -->
+          <div class="tranches-panel">
+            <div class="panel-heading"><i class="fa-solid fa-layer-group"></i> 3-Stage Input Tranche Distribution</div>
+            <div class="tranches-grid" id="container-tranches">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+
+          <!-- Farmer Self-Sovereign Identity & Consent Vault -->
+          <div class="consent-vault-footer">
+            <div class="did-info">
+              <i class="fa-solid fa-shield-halved"></i>
+              <div>
+                <span class="did-title">Self-Sovereign Identity (W3C DID):</span>
+                <code class="did-string" id="txt-did-identifier">did:kisan:ind:9f8a2c418e20b3</code>
+              </div>
+            </div>
+            <div class="consent-action">
+              <button class="btn btn-sm btn-outline" id="btn-consent-toggle">
+                <i class="fa-solid fa-lock-open"></i> Consent Active (72h)
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================== -->
+    <!-- TAB 2: FPO 3-PEER GUARANTEE & COMMUNITY HEALTH HUB             -->
+    <!-- ============================================================== -->
+    <section id="tab-fpo" class="tab-view">
+      <div class="view-header">
+        <div class="view-header-left">
+          <span class="section-kicker">FPO Community Management</span>
+          <h1 class="section-heading">Farmer Producer Organisation (FPO) Social Collateral Hub</h1>
+          <p class="section-lead">Manage 3-Peer Guarantee Circles, perform field crop standing verification audits, and build collective community creditworthiness without requiring land mortgages.</p>
+        </div>
+        <div class="header-metric-cards">
+          <div class="metric-card">
+            <div class="metric-num text-primary">Sahyadri FPC</div>
+            <div class="metric-label">Managing Collective</div>
+            <div class="metric-sub">Nashik Horticulture Cluster</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-num text-success">94.8%</div>
+            <div class="metric-label">FPO Repayment Rate</div>
+            <div class="metric-sub">Benchmark: &gt; 78% Required</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-num text-warning">148 Circles</div>
+            <div class="metric-label">Active 3-Peer Trios</div>
+            <div class="metric-sub">444 Marginal Member Farmers</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="two-col-grid">
+        <!-- Interactive 3-Peer Guarantee Circle Visualizer -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title"><i class="fa-solid fa-circle-nodes"></i> Interactive 3-Peer Guarantee Circle #48</div>
+            <span class="status-badge status-success">Circle Integrity: 96%</span>
+          </div>
+          <div class="card-body">
+            <p class="card-desc">Click any farmer node in the trio to inspect their land details, crop standing, and mutual guarantee status.</p>
+
+            <div class="peer-graph-stage">
+              <!-- Visual Canvas Diagram -->
+              <div class="peer-node-card p1 active" id="peer-card-1" data-peer="1">
+                <div class="peer-icon"><i class="fa-solid fa-user-check"></i></div>
+                <div class="peer-details">
+                  <strong class="peer-title">Ramesh Patil</strong>
+                  <span class="peer-sub">1.5 Ac Tomato</span>
+                  <span class="peer-score-tag">Score: 91</span>
+                </div>
+              </div>
+
+              <div class="peer-node-card p2" id="peer-card-2" data-peer="2">
+                <div class="peer-icon"><i class="fa-solid fa-user-check"></i></div>
+                <div class="peer-details">
+                  <strong class="peer-title">Suresh Shinde</strong>
+                  <span class="peer-sub">1.2 Ac Onion</span>
+                  <span class="peer-score-tag">Score: 88</span>
+                </div>
+              </div>
+
+              <div class="peer-node-card p3" id="peer-card-3" data-peer="3">
+                <div class="peer-icon"><i class="fa-solid fa-user-check"></i></div>
+                <div class="peer-details">
+                  <strong class="peer-title">Balasaheb Jadhav</strong>
+                  <span class="peer-sub">2.0 Ac Grapes</span>
+                  <span class="peer-score-tag">Score: 94</span>
+                </div>
+              </div>
+
+              <!-- Connecting Trust Web SVG -->
+              <svg class="trust-web-svg" viewBox="0 0 440 260">
+                <line x1="220" y1="45" x2="90" y2="210" stroke="#16a34a" stroke-width="2.5" stroke-dasharray="6,6" class="anim-dash" />
+                <line x1="220" y1="45" x2="350" y2="210" stroke="#16a34a" stroke-width="2.5" stroke-dasharray="6,6" class="anim-dash" />
+                <line x1="90" y1="210" x2="350" y2="210" stroke="#16a34a" stroke-width="2.5" stroke-dasharray="6,6" class="anim-dash" />
+                <circle cx="220" cy="135" r="30" fill="var(--bg-card)" stroke="#22c55e" stroke-width="2" />
+                <text x="220" y="140" text-anchor="middle" fill="#15803d" font-size="10" font-weight="700">3-PEER</text>
+              </svg>
+            </div>
+
+            <!-- Selected Peer Inspector Card -->
+            <div class="peer-inspector-box" id="peer-inspector-content">
+              <div class="inspector-head">
+                <div>
+                  <h4 id="inspector-name">Ramesh Tukaram Patil (Primary Borrower)</h4>
+                  <span class="inspector-location" id="inspector-loc">Pimpalgaon Baswant, Nashik, MH</span>
+                </div>
+                <span class="status-badge status-success" id="inspector-status"><i class="fa-solid fa-check"></i> Field Verified</span>
+              </div>
+              <div class="inspector-grid">
+                <div><strong>Crop:</strong> <span id="inspector-crop">Tomato (1.5 Acres)</span></div>
+                <div><strong>Irrigation:</strong> <span id="inspector-irrigation">Micro-Drip Installed</span></div>
+                <div><strong>Repayment History:</strong> <span class="text-success" id="inspector-history">100% On-Time (3 Seasons)</span></div>
+                <div><strong>PM-KISAN Status:</strong> <span class="text-success" id="inspector-pmkisan">Active DBT Seeding</span></div>
+              </div>
+            </div>
+
+            <div class="circle-btn-row">
+              <button class="btn btn-sm btn-outline" id="btn-toggle-peer-verify"><i class="fa-solid fa-user-shield"></i> Toggle Peer Verification</button>
+              <button class="btn btn-sm btn-primary" id="btn-endorse-circle"><i class="fa-solid fa-signature"></i> Endorse Circle to Rural Bank</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Field Verification & Crop Standing Audit -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title"><i class="fa-solid fa-clipboard-check"></i> Field Crop Standing & Geo-tag Audit</div>
+            <span class="status-badge status-info"><i class="fa-solid fa-location-crosshairs"></i> GPS: 20.1742° N, 73.9921° E</span>
+          </div>
+          <div class="card-body">
+            <div class="field-camera-view">
+              <div class="camera-lens">
+                <i class="fa-solid fa-seedling leaf-icon"></i>
+                <div class="camera-overlay-info">
+                  <div class="cam-row"><span>PLOT:</span> <strong>NASHIK_PIMPALGAON_PLOT_42</strong></div>
+                  <div class="cam-row"><span>CROP STAGE:</span> <strong>TOMATO (FLOWERING / 35 DAYS)</strong></div>
+                  <div class="cam-row"><span>NDVI VIGOR:</span> <strong class="text-success">0.78 (HEALTHY VEGETATION)</strong></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="audit-checklist-card">
+              <label class="custom-checkbox">
+                <input type="checkbox" checked disabled>
+                <span class="checkbox-mark"></span>
+                <span>Physical crop germination and healthy canopy inspected</span>
+              </label>
+              <label class="custom-checkbox">
+                <input type="checkbox" checked disabled>
+                <span class="checkbox-mark"></span>
+                <span>Micro-drip irrigation lateral lines confirmed functional</span>
+              </label>
+              <label class="custom-checkbox">
+                <input type="checkbox" checked disabled>
+                <span class="checkbox-mark"></span>
+                <span>Co-guarantor mutual consent signed in FPO register</span>
+              </label>
+            </div>
+
+            <div class="coordinator-note-box">
+              <label class="form-label">FPO Coordinator Field Assessment Remarks:</label>
+              <p class="note-text">"Farmer has adopted mulching sheets and drip fertigation. Soil moisture is adequate. Neighboring guarantors Suresh and Balasaheb have confirmed boundary integrity."</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- FPO Guarantee Circles Directory Table -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title"><i class="fa-solid fa-table-list"></i> Managed Guarantee Circles & Village PM-KISAN Saturation</div>
+          <div class="table-search-wrap">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input type="text" id="input-search-circles" placeholder="Search farmer, crop, village..." class="search-input">
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table class="table" id="table-fpo-circles">
+            <thead>
+              <tr>
+                <th>Circle ID</th>
+                <th>Primary Member</th>
+                <th>Co-Guarantor 1</th>
+                <th>Co-Guarantor 2</th>
+                <th>Crop & Acreage</th>
+                <th>PM-KISAN Saturation</th>
+                <th>Trust Score</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>#CIR-MH-48</code></td>
+                <td><strong>Ramesh Patil</strong></td>
+                <td>Suresh Shinde</td>
+                <td>Balasaheb Jadhav</td>
+                <td>Tomato (1.5 Ac)</td>
+                <td><span class="text-success font-bold">98.4% (Pimpalgaon)</span></td>
+                <td><span class="badge-score score-high">91 / 100</span></td>
+                <td><span class="status-badge status-success">Verified & Endorsed</span></td>
+                <td><button class="btn btn-xs btn-outline" onclick="selectCircleRow('Ramesh Patil')">View</button></td>
+              </tr>
+              <tr>
+                <td><code>#CIR-KA-12</code></td>
+                <td><strong>Venkatesh Gowda</strong></td>
+                <td>Narayanaswamy</td>
+                <td>Manjunatha</td>
+                <td>Tomato (2.0 Ac)</td>
+                <td><span class="text-success font-bold">97.8% (Vemagal)</span></td>
+                <td><span class="badge-score score-high">89 / 100</span></td>
+                <td><span class="status-badge status-success">Verified & Endorsed</span></td>
+                <td><button class="btn btn-xs btn-outline" onclick="selectCircleRow('Venkatesh Gowda')">View</button></td>
+              </tr>
+              <tr>
+                <td><code>#CIR-AP-09</code></td>
+                <td><strong>Samba Siva Rao</strong></td>
+                <td>Koteswara Rao</td>
+                <td>Subba Rao</td>
+                <td>Chilli (2.2 Ac)</td>
+                <td><span class="text-success font-bold">99.2% (Mangalagiri)</span></td>
+                <td><span class="badge-score score-high">94 / 100</span></td>
+                <td><span class="status-badge status-info">Disbursed</span></td>
+                <td><button class="btn btn-xs btn-outline" onclick="selectCircleRow('Samba Siva Rao')">View</button></td>
+              </tr>
+              <tr>
+                <td><code>#CIR-UP-31</code></td>
+                <td><strong>Ram Naresh Yadav</strong></td>
+                <td>Shyam Sundar</td>
+                <td>Dinesh Kumar</td>
+                <td>Potato (1.8 Ac)</td>
+                <td><span class="text-warning font-bold">95.2% (Fatehabad)</span></td>
+                <td><span class="badge-score score-mid">82 / 100</span></td>
+                <td><span class="status-badge status-warning">Audit Scheduled</span></td>
+                <td><button class="btn btn-xs btn-outline" onclick="selectCircleRow('Ram Naresh Yadav')">Audit</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================== -->
+    <!-- TAB 3: RURAL BANK LENDER & RISK DESK                           -->
+    <!-- ============================================================== -->
+    <section id="tab-bank" class="tab-view">
+      <div class="view-header">
+        <div class="view-header-left">
+          <span class="section-kicker">Institutional Underwriting</span>
+          <h1 class="section-heading">Regional Rural Bank (RRB) & NABARD Risk Desk</h1>
+          <p class="section-lead">Review transparent scoring breakdowns, stress-test crop cashflows against mandi price volatility, and sanction 1-click direct DBT credit transfers.</p>
+        </div>
+        <div class="header-metric-cards">
+          <div class="metric-card">
+            <div class="metric-num text-success">NABARD / RRB</div>
+            <div class="metric-label">Institutional Lending Partner</div>
+            <div class="metric-sub">Priority Sector Lending (PSL)</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-num text-primary">₹ 25.0 Crore</div>
+            <div class="metric-label">Allocated PSL Capital</div>
+            <div class="metric-sub">Disbursed: ₹ 8.42 Cr (33.7%)</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-num text-success">94.1%</div>
+            <div class="metric-label">Historic Recovery Rate</div>
+            <div class="metric-sub">Zero Gross NPAs in 3-Peer Groups</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="two-col-grid">
+        <!-- Underwriting Queue -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title"><i class="fa-solid fa-list-check"></i> Institutional Credit Underwriting Queue</div>
+            <span class="status-badge status-info">Consent Gated (72h)</span>
+          </div>
+          <div class="table-responsive">
+            <table class="table" id="table-bank-queue">
+              <thead>
+                <tr>
+                  <th>Farmer Profile</th>
+                  <th>Crop & Location</th>
+                  <th>Formula Limit</th>
+                  <th>Trust Score</th>
+                  <th>PMFBY Risk</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="bank-queue-tbody">
+                <!-- Populated via JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Explainable Radar Scorecard & Stress Testing -->
+        <div class="card card-accent">
+          <div class="card-header">
+            <div class="card-title"><i class="fa-solid fa-chart-radar"></i> Explainable Underwriting Scorecard</div>
+            <span class="did-pill" id="bank-active-did">did:kisan:ind:9f8a2c418e20b3</span>
+          </div>
+          <div class="card-body">
+            <!-- Radar Chart Container -->
+            <div class="chart-wrapper">
+              <canvas id="chartUnderwritingRadar"></canvas>
+            </div>
+
+            <!-- Score Component Progress Bars -->
+            <div class="score-progress-stack">
+              <div class="prog-item">
+                <div class="prog-meta">
+                  <span>1. Crop Cashflow & DSCR (Max 35)</span>
+                  <strong id="prog-txt-cashflow">35.0 / 35</strong>
+                </div>
+                <div class="prog-track"><div class="prog-bar bg-success" id="prog-bar-cashflow" style="width: 100%;"></div></div>
+              </div>
+
+              <div class="prog-item">
+                <div class="prog-meta">
+                  <span>2. FPO 3-Peer Social Guarantee (Max 25)</span>
+                  <strong id="prog-txt-fpo">24.5 / 25</strong>
+                </div>
+                <div class="prog-track"><div class="prog-bar bg-primary" id="prog-bar-fpo" style="width: 98%;"></div></div>
+              </div>
+
+              <div class="prog-item">
+                <div class="prog-meta">
+                  <span>3. PM-KISAN & Govt Verification (Max 20)</span>
+                  <strong id="prog-txt-govt">19.5 / 20</strong>
+                </div>
+                <div class="prog-track"><div class="prog-bar bg-info" id="prog-bar-govt" style="width: 97.5%;"></div></div>
+              </div>
+
+              <div class="prog-item">
+                <div class="prog-meta">
+                  <span>4. AGMARKNET & PMFBY Risk Index (Max 20)</span>
+                  <strong id="prog-txt-risk">18.5 / 20</strong>
+                </div>
+                <div class="prog-track"><div class="prog-bar bg-warning" id="prog-bar-risk" style="width: 92.5%;"></div></div>
+              </div>
+            </div>
+
+            <!-- Mandi Stress Testing Simulation Box -->
+            <div class="stress-sim-card">
+              <div class="stress-header">
+                <div class="stress-title"><i class="fa-solid fa-cloud-bolt"></i> Mandi Price Stress-Test Resilience</div>
+              </div>
+              <div class="stress-actions">
+                <button class="btn-chip active" data-shock="0">Baseline Price (₹1,850)</button>
+                <button class="btn-chip" data-shock="-15">-15% Unseasonal Glut</button>
+                <button class="btn-chip" data-shock="-30">-30% Extreme Mandi Crash</button>
+              </div>
+              <p class="stress-result-msg" id="txt-stress-output">Under baseline modal price, DSCR is <strong>2.68x</strong>. Loan is safely covered by expected harvest revenues.</p>
+            </div>
+
+            <!-- Disbursal Action Bar -->
+            <div class="disburse-footer">
+              <div class="disburse-terms">
+                <div>Sanction Amount: <strong class="text-success" id="bank-sanction-amount">₹ 1,02,400</strong></div>
+                <div class="sub-terms">Interest: 9.0% p.a. • Bullet Tenure: 120 Days</div>
+              </div>
+              <button class="btn btn-primary btn-lg" id="btn-open-disburse">
+                <i class="fa-solid fa-bolt"></i> 1-Click Instant DBT Disbursal
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================== -->
+    <!-- TAB 4: OPEN AGRI DATASETS EXPLORER                             -->
+    <!-- ============================================================== -->
+    <section id="tab-data" class="tab-view">
+      <div class="view-header">
+        <div class="view-header-left">
+          <span class="section-kicker">Data.gov.in & DMI Ingestion Layer</span>
+          <h1 class="section-heading">Verified Open Government Datasets</h1>
+          <p class="section-lead">Real-time benchmark feeds powering the explainable credit underwriting engine across 3,000+ mandis, horticulture statistics, and insurance loss records.</p>
+        </div>
+        <div class="dataset-pills-row">
+          <span class="tag-badge"><i class="fa-solid fa-database"></i> AGMARKNET 2.0 API</span>
+          <span class="tag-badge"><i class="fa-solid fa-tree"></i> NHB Horticulture Norms</span>
+          <span class="tag-badge"><i class="fa-solid fa-users"></i> PM-KISAN Beneficiary Register</span>
+          <span class="tag-badge"><i class="fa-solid fa-shield-halved"></i> PMFBY Actuarial Loss</span>
+          <span class="tag-badge"><i class="fa-solid fa-bug"></i> ICAR Crop Pest Alerts</span>
+        </div>
+      </div>
+
+      <!-- Dataset Filter & Tables -->
+      <div class="two-col-grid">
+        <!-- AGMARKNET Mandi Price Table -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title"><i class="fa-solid fa-store"></i> AGMARKNET 2.0 Mandi Benchmark Prices</div>
+            <span class="status-badge status-success">Real-Time Ingestion</span>
+          </div>
+          <div class="card-body">
+            <div class="table-filter-bar">
+              <input type="text" id="input-filter-agmark" placeholder="Filter commodity or mandi..." class="form-control form-control-sm">
+            </div>
+            <div class="table-responsive small-table">
+              <table class="table" id="table-agmarknet">
+                <thead>
+                  <tr>
+                    <th>Commodity</th>
+                    <th>Market APMC</th>
+                    <th>State</th>
+                    <th>Modal Price</th>
+                    <th>Arrivals</th>
+                    <th>30D Trend</th>
+                  </tr>
+                </thead>
+                <tbody id="agmarknet-tbody">
+                  <!-- Populated via JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- NHB Horticulture Crop Norms Table -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title"><i class="fa-solid fa-seedling"></i> National Horticulture Board (NHB) Yield & Cost Norms</div>
+            <span class="status-badge status-info">CACP & NHB Baseline</span>
+          </div>
+          <div class="card-body">
+            <div class="table-filter-bar">
+              <input type="text" id="input-filter-nhb" placeholder="Filter crop..." class="form-control form-control-sm">
+            </div>
+            <div class="table-responsive small-table">
+              <table class="table" id="table-nhb">
+                <thead>
+                  <tr>
+                    <th>Horticulture Crop</th>
+                    <th>Category</th>
+                    <th>Avg Yield</th>
+                    <th>Cultivation Cost</th>
+                    <th>Duration</th>
+                    <th>Drip Yield Boost</th>
+                  </tr>
+                </thead>
+                <tbody id="nhb-tbody">
+                  <!-- Populated via JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PMFBY & ICAR Row -->
+      <div class="two-col-grid mt-4">
+        <!-- PMFBY Crop Risk Profiles -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title"><i class="fa-solid fa-shield-heart"></i> PMFBY District Actuarial Hazard & Claims Risk</div>
+            <span class="status-badge status-warning">5-Year Claims Ratio</span>
+          </div>
+          <div class="table-responsive small-table">
+            <table class="table" id="table-pmfby">
+              <thead>
+                <tr>
+                  <th>District & State</th>
+                  <th>Major Crops</th>
+                  <th>Loss Ratio (5-Yr)</th>
+                  <th>Primary Climate Hazard</th>
+                  <th>Risk Factor</th>
+                </tr>
+              </thead>
+              <tbody id="pmfby-tbody">
+                <!-- Populated via JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ICAR Active Pest & Disease Advisories -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title"><i class="fa-solid fa-triangle-exclamation"></i> ICAR Pest & Disease Early Warning Feed</div>
+            <span class="status-badge status-danger">Active Alert</span>
+          </div>
+          <div class="card-body">
+            <div class="icar-feed-container" id="icar-feed-list">
+              <!-- Populated via JS -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Disbursement & E-Sanction Modal -->
+  <div class="modal-backdrop" id="modal-disbursement">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <div class="modal-icon-success"><i class="fa-solid fa-circle-check"></i></div>
+          <div>
+            <h3>Institutional Credit Disbursed Successfully</h3>
+            <span class="modal-subtitle">Direct Benefit Transfer (DBT) Executed</span>
+          </div>
+        </div>
+        <button class="modal-close-btn" id="btn-close-modal" aria-label="Close Modal"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="sanction-receipt">
+          <div class="receipt-header-row">
+            <div>
+              <strong>NABARD-RRB Priority Sector Lending</strong>
+              <div class="receipt-num">Sanction Letter Ref: <code>NAB/2026/AGR/99418</code></div>
+            </div>
+            <span class="status-badge status-success">DBT Settled</span>
+          </div>
+
+          <div class="receipt-grid">
+            <div class="r-item">
+              <span class="r-lbl">Beneficiary Farmer</span>
+              <strong class="r-val" id="receipt-farmer-name">Ramesh Tukaram Patil</strong>
+            </div>
+            <div class="r-item">
+              <span class="r-lbl">Tranche 1 Disbursed (Seeds & Sowing)</span>
+              <strong class="r-val text-success" id="receipt-tranche-amt">₹ 40,960</strong>
+            </div>
+            <div class="r-item">
+              <span class="r-lbl">Total Sanctioned Limit</span>
+              <strong class="r-val" id="receipt-total-limit">₹ 1,02,400</strong>
+            </div>
+            <div class="r-item">
+              <span class="r-lbl">Annual Interest Rate</span>
+              <strong class="r-val">9.0% p.a. (Harvest Bullet Repayment)</strong>
+            </div>
+            <div class="r-item">
+              <span class="r-lbl">3-Peer Guarantee Circle</span>
+              <strong class="r-val">Sahyadri Trio #48 (Verified)</strong>
+            </div>
+            <div class="r-item">
+              <span class="r-lbl">Bank UTR Transaction Hash</span>
+              <code class="r-val" id="receipt-tx-hash">0x7f9a2b84c01d4e78a2f981290bb34c</code>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="btn-print-sanction"><i class="fa-solid fa-print"></i> Print Official E-Sanction Letter</button>
+        <button class="btn btn-primary" id="btn-modal-dismiss">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

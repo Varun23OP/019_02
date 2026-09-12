@@ -2,6 +2,14 @@ from pydantic import BaseModel, Field, field_validator
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 from backend.models import FarmerStatus
+from backend.schemas.credit import (
+    CreditAssessmentRequest,
+    CreditAssessmentResponse as EngineCreditAssessmentResponse,
+    YieldCappingInfo,
+    MandiPriceDiscovery,
+    WeatherTelemetry,
+    BatchDisbursementRequest
+)
 
 
 class FarmerBase(BaseModel):

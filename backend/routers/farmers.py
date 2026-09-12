@@ -1,6 +1,11 @@
+"""
+FastAPI Router for Farmer Profiles, Assessments & Underwriting Sync (backend/routers/farmers.py)
+Supports SQLite ORM persistence and agronomic assessment caching.
+"""
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 import logging
 
 from backend.database import get_db
@@ -12,19 +17,23 @@ from backend.schemas import (
     CreditAssessmentCreate,
     CreditAssessmentResponse
 )
+from backend.schemas.credit import CreditAssessmentRequest, CreditAssessmentResponse as EngineCreditAssessmentResponse
+from backend.services.agronomic_engine import AgronomicEngine
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+engine = AgronomicEngine()
+
+# In-memory cache for fast active assessments
+ASSESSMENT_STORE: Dict[str, Any] = {}
 
 
 @router.post("/", response_model=FarmerResponse, status_code=status.HTTP_201_CREATED)
 async def create_farmer(farmer: FarmerCreate, db: Session = Depends(get_db)):
     """Create a new farmer or return existing if phone matches"""
     try:
-        # Check if phone already exists
         existing_farmer = db.query(Farmer).filter(Farmer.phone == farmer.phone).first()
         if existing_farmer:
-            # If farmer exists, update fields and return
             existing_farmer.name = farmer.name
             existing_farmer.land_size_acres = farmer.get_land_size()
             if farmer.village:
@@ -106,7 +115,6 @@ async def update_farmer(farmer_id: int, farmer_update: FarmerUpdate, db: Session
                 detail="Farmer not found"
             )
         
-        # Update only provided fields
         update_data = farmer_update.model_dump(exclude_unset=True)
         for field, value in update_data.items():
             setattr(db_farmer, field, value)
@@ -154,7 +162,7 @@ async def delete_farmer(farmer_id: int, db: Session = Depends(get_db)):
 
 @router.post("/{farmer_id}/assessments", response_model=CreditAssessmentResponse, status_code=status.HTTP_201_CREATED)
 async def create_credit_assessment(farmer_id: int, assessment: CreditAssessmentCreate, db: Session = Depends(get_db)):
-    """Create a credit assessment for a farmer"""
+    """Create a credit assessment for a farmer in SQLite database"""
     try:
         farmer = db.query(Farmer).filter(Farmer.id == farmer_id).first()
         if not farmer:
@@ -185,7 +193,7 @@ async def create_credit_assessment(farmer_id: int, assessment: CreditAssessmentC
 
 @router.get("/{farmer_id}/assessments", response_model=List[CreditAssessmentResponse])
 async def get_farmer_assessments(farmer_id: int, db: Session = Depends(get_db)):
-    """Get all credit assessments for a farmer"""
+    """Get all credit assessments for a farmer from SQLite database"""
     try:
         farmer = db.query(Farmer).filter(Farmer.id == farmer_id).first()
         if not farmer:
@@ -206,3 +214,16 @@ async def get_farmer_assessments(farmer_id: int, db: Session = Depends(get_db)):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to fetch credit assessments"
         )
+
+
+# Legacy Agronomic Engine Endpoint Compatibility
+@router.post("/engine/assessments", response_model=EngineCreditAssessmentResponse)
+async def create_engine_credit_assessment(payload: CreditAssessmentRequest):
+    """Compute dynamic credit limit via legacy AgronomicEngine"""
+    try:
+        assessment = engine.compute_complete_underwriting(payload.dict())
+        farmer_did = assessment["farmer_profile"]["did"]
+        ASSESSMENT_STORE[farmer_did] = assessment
+        return assessment
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Agronomic calculation error: {str(e)}")
