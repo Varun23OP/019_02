@@ -3,6 +3,9 @@
  * Frontend Application & Underwriting Interface
  */
 
+// Dynamic API Base URL for Cloud Deployment / GitHub Pages / Localhost
+const API_BASE_URL = window.API_BASE_URL || (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" ? "http://127.0.0.1:8000" : "");
+
 // Embedded baseline datasets for resilient offline / file:// protocol execution
 const DEFAULT_AGMARKNET = [
   { commodity: "Tomato", market: "Pimpalgaon Mandi", district: "Nashik", state: "Maharashtra", modal_price: 1850, arrivals_tonnes: 310.2, trend: "+12.1%", peak: "August-September" },
@@ -850,7 +853,8 @@ async function processVoiceTranscript(transcript) {
 
   // Attempt backend API call first
   try {
-    const resp = await fetch("/api/v1/voice/parse", {
+    const parseUrl = API_BASE_URL ? `${API_BASE_URL}/api/v1/voice/parse` : "/api/v1/voice/parse";
+    const resp = await fetch(parseUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1368,9 +1372,10 @@ function renderIcarAlerts(alerts) {
   `).join("");
 }
 
-// Fetch Live Datasets from server API (if available)
+// Fetch Live Datasets from server API (if available) with static fallback
 function fetchLiveDatasets() {
-  fetch("/api/datasets")
+  const datasetsUrl = API_BASE_URL ? `${API_BASE_URL}/api/datasets` : "/api/datasets";
+  fetch(datasetsUrl)
     .then(res => res.json())
     .then(data => {
       if (data.agmarknet && data.agmarknet.length > 0) {
@@ -1378,7 +1383,17 @@ function fetchLiveDatasets() {
       }
     })
     .catch(() => {
-      // Gracefully silent fallback to embedded default datasets
+      // If deployed on GitHub Pages or static host, load local static JSON data
+      fetch("data/agmarknet_data.json")
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.length > 0) {
+            renderAgmarknetTable(data);
+          }
+        })
+        .catch(() => {
+          // Gracefully silent fallback to embedded default datasets
+        });
     });
 }
 

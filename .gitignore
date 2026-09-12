@@ -29,9 +29,19 @@ env/
 ENV/
 .venv/
 
-# Environment Variables
+# Environment Variables & Secrets
 .env
 !.env.example
+.streamlit/secrets.toml
+*.pem
+*.key
+
+# Temporary & Test Scaffolding
+scratch/
+.pytest_cache/
+.coverage
+htmlcov/
+*.log
 
 # IDE & OS files
 .vscode/

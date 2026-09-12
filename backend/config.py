@@ -7,8 +7,9 @@ class Settings(BaseSettings):
     
     # Application
     APP_NAME: str = "Farmer Financial Infrastructure API"
-    APP_VERSION: str = "1.0.0"
+    APP_VERSION: str = "2.0.0"
     DEBUG: bool = False
+    PORT: int = 8000
     
     # Database
     DATABASE_URL: str = "sqlite:///./farmer_finance.db"
@@ -19,7 +20,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     
     # CORS
-    ALLOWED_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:8000"]
+    ALLOWED_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:8000", "http://localhost:8501", "*"]
     
     # API
     API_V1_PREFIX: str = "/api/v1"

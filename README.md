@@ -2,6 +2,8 @@
 
 A community-owned financial infrastructure that democratizes agricultural credit through transparent, deterministic agronomic assessment, FPO 3-member peer social collateral, and harvest-synchronized bullet repayment—enabling India's 86 million marginal smallholders (< 2.5 acres) to escape informal money-lending traps without requiring land ownership titles.
 
+> 📖 **Comprehensive Project Documentation**: For complete architectural deep-dives, mathematical formulations, multilingual voice NLP pipeline, conflict resolution logic, and deployment specifications, see [PROJECT_WORK_DOCUMENTATION.md](PROJECT_WORK_DOCUMENTATION.md).
+
 ---
 
 ## Key Highlights & PRD Compliance
@@ -101,6 +103,68 @@ python -m backend.test_api
 ```bash
 python test_e2e_journey.py
 ```
+
+---
+
+## Cloud Deployment Guide
+
+KisanSetu is architected with a decoupled, resilient architecture:
+1. **Frontend App (`frontend_app.py`)**: Deployable to **Streamlit Community Cloud** (or Hugging Face Spaces).
+2. **Backend API (`backend/main.py`)**: Deployable to **Render**, **Railway**, **Fly.io**, or any cloud VM/container.
+3. **Static Web Console (`index.html` + `app.js`)**: Deployable to **GitHub Pages**.
+
+---
+
+### A. Deploy Streamlit Frontend (Streamlit Community Cloud)
+
+1. Fork or push this repository to GitHub.
+2. Go to [share.streamlit.io](https://share.streamlit.io) and log in with your GitHub account.
+3. Click **"Create app"** and configure:
+   - **Repository**: `<your-github-username>/019_02`
+   - **Branch**: `main`
+   - **Main file path**: `frontend_app.py`
+4. Expand **Advanced settings** -> **Secrets**:
+   Add your deployed backend API URL and any production keys:
+   ```toml
+   BACKEND_URL = "https://your-backend-api.onrender.com"
+   ```
+5. Click **"Deploy!"**.
+   *(Note: If the backend is waking up from a cold start, `frontend_app.py` automatically falls back to its local deterministic engine without interrupting the farmer).*
+
+---
+
+### B. Deploy FastAPI Backend (Render / Railway)
+
+#### Option 1: Render (Web Service)
+1. Log in to [render.com](https://render.com) and click **"New"** -> **"Web Service"**.
+2. Connect your GitHub repository `019_02`.
+3. Configure the service:
+   - **Name**: `kisansetu-api`
+   - **Runtime**: `Python 3`
+   - **Build Command**: `pip install -r requirements.txt && python -m backend.seed_data`
+   - **Start Command**: `uvicorn backend.main:app --host 0.0.0.0 --port $PORT`
+4. Set Environment Variables in Render:
+   - `DATABASE_URL`: `sqlite:///./farmer_finance.db` (or your managed PostgreSQL URI)
+   - `SECRET_KEY`: `<generate-a-secure-random-token>`
+   - `ALLOWED_ORIGINS`: `["*"]`
+5. Click **"Create Web Service"**. Once deployed, copy your service URL (e.g. `https://kisansetu-api.onrender.com`).
+
+#### Option 2: Railway
+1. Log in to [railway.app](https://railway.app) and create a **"New Project from GitHub Repo"**.
+2. Railway automatically detects `Procfile` and `requirements.txt`.
+3. Set environment variable `PORT` (assigned automatically) and `DATABASE_URL`.
+4. Deploy the project and copy your public domain.
+
+---
+
+### C. Deploy Static Web Console (GitHub Pages)
+
+The repository includes a GitHub Actions workflow (`.github/workflows/pages.yml`) for automated zero-config publishing:
+1. Go to your GitHub repository -> **Settings** -> **Pages**.
+2. Under **Build and deployment** -> **Source**, select **"GitHub Actions"**.
+3. Push to `main` or trigger the workflow manually from the **Actions** tab.
+4. Your static web console will be live at:
+   `https://<your-username>.github.io/<repo-name>/`
 
 ---
 

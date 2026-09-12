@@ -1,0 +1,39 @@
+name: CI & Deployment Verification
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    name: Run Automated PRD & Regression Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Seed Database
+        run: |
+          python -m backend.seed_data
+
+      - name: Run Backend PRD Test Suite
+        run: |
+          python -m backend.test_api
+
+      - name: Run End-to-End Journey Verification
+        run: |
+          python test_e2e_journey.py

@@ -12,7 +12,22 @@ from backend.services.agri_data import AgriDataService, AGMARKNET_MANDI_CATALOG
 from backend.services.identity_blockchain import FarmerIdentityService
 from backend.services.gdpr_consent import GDPRConsentService
 
-API_BASE = "http://127.0.0.1:8000/api/v1"
+import os
+
+# Dynamic API base configuration for cloud deployment (Streamlit Cloud / Render / Railway)
+API_BASE = os.getenv("API_BASE") or os.getenv("BACKEND_URL")
+if not API_BASE:
+    try:
+        API_BASE = st.secrets.get("BACKEND_URL") or st.secrets.get("API_BASE")
+    except Exception:
+        API_BASE = None
+if not API_BASE:
+    API_BASE = "http://127.0.0.1:8000/api/v1"
+
+API_BASE = API_BASE.rstrip("/")
+if not API_BASE.endswith("/api/v1"):
+    API_BASE = f"{API_BASE}/api/v1"
+
 
 st.set_page_config(
     page_title="KisanSetu — Community-Owned Credit Network",
