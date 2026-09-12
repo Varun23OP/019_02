@@ -2,7 +2,7 @@
 
 A community-owned financial infrastructure that democratizes agricultural credit through transparent, deterministic agronomic assessment, FPO 3-member peer social collateral, and harvest-synchronized bullet repayment—enabling India's 86 million marginal smallholders (< 2.5 acres) to escape informal money-lending traps without requiring land ownership titles.
 
-> 📖 **Comprehensive Project Documentation**: For complete architectural deep-dives, mathematical formulations, multilingual voice NLP pipeline, conflict resolution logic, and deployment specifications, see [PROJECT_WORK_DOCUMENTATION.md](PROJECT_WORK_DOCUMENTATION.md).
+> 📖 **Comprehensive Project Documentation**: For complete architectural deep-dives, mathematical formulations, multilingual voice NLP pipeline, conflict resolution logic, and complete API specifications, see [DOCUMENTATION.md](DOCUMENTATION.md) (or [PROJECT_WORK_DOCUMENTATION.md](PROJECT_WORK_DOCUMENTATION.md)).
 
 ---
 
