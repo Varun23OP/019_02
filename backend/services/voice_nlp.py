@@ -273,6 +273,7 @@ INDIC_NUMERAL_TRANS = str.maketrans({
 })
 
 HINDI_NUM_MAP: Dict[str, float] = {
+    'एक': 1.0, 'one': 1.0, 'ek': 1.0,
     'आधा': 0.5, 'half': 0.5,
     'सवा': 1.25, 'डेढ़': 1.5, 'देढ़': 1.5, 'one and a half': 1.5, 'one and half': 1.5, 'dedh': 1.5,
     'पौने दो': 1.75, 'दो': 2.0, 'two': 2.0, 'दोन': 2.0, 'બે': 2.0, 'రెండు': 2.0, 'do': 2.0,
@@ -551,7 +552,8 @@ class VoiceNLPService:
     def parse_transcript_to_fields(
         transcript: str,
         lang_code: str = "hi",
-        current_data: Optional[Dict[str, Any]] = None
+        current_data: Optional[Dict[str, Any]] = None,
+        target_field: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Extract verified agronomic entities from spoken/typed transcript across 11 Indian languages.
@@ -580,8 +582,8 @@ class VoiceNLPService:
         clarifications: List[str] = []
         contradictions: List[str] = []
 
-        # 1. Phone number (10 continuous digits starting with 6-9)
-        phone_match = re.search(r'\b([6-9]\d{9})\b', norm_text)
+        # 1. Phone number (continuous digits starting with 6-9, or prefixed by phone keyword)
+        phone_match = re.search(r'(?:phone|mobile|नंबर|मोबाईल|నంబర్|फोन|फ़ोन|मोबाइल|ఫోన్|மொபைல்)\s*[:\s]?\b([6-9]\d{7,11})\b', norm_text, re.IGNORECASE) or re.search(r'\b([6-9]\d{8,11})\b', norm_text)
         if phone_match:
             extracted["phone"] = phone_match.group(1)
             confidences["phone"] = 0.99
@@ -765,6 +767,48 @@ class VoiceNLPService:
             extracted["irrigation"] = "Canal"
             confidences["irrigation"] = 0.90
 
+        # Target Field Fallbacks when farmer is answering a specific follow-up question
+        if target_field:
+            if target_field in ["yield", "yield_quintals", "projected_yield"] and "yield_quintals" not in extracted:
+                num_m = re.search(r'(\d+(?:\.\d+)?)', norm_text)
+                if num_m:
+                    v = float(num_m.group(1))
+                    if 0.5 <= v <= 120.0:
+                        extracted["yield"] = v
+                        extracted["yield_quintals"] = v
+                        extracted["projected_yield"] = v
+                        confidences["yield"] = 0.95
+            elif target_field in ["costs", "input_costs"] and "costs" not in extracted:
+                num_m = re.search(r'(\d{3,7})', norm_text)
+                if num_m:
+                    v = float(num_m.group(1))
+                    extracted["costs"] = v
+                    extracted["input_costs"] = v
+                    confidences["costs"] = 0.95
+            elif target_field == "acres" and "acres" not in extracted:
+                num_m = re.search(r'(\d+(?:\.\d+)?)', norm_text)
+                if num_m:
+                    v = float(num_m.group(1))
+                    if 0.1 <= v <= 20.0:
+                        extracted["acres"] = v
+                        confidences["acres"] = 0.95
+            elif target_field == "phone" and "phone" not in extracted:
+                p_m = re.search(r'([6-9]\d{7,11})', norm_text) or re.search(r'(\d{8,12})', norm_text)
+                if p_m:
+                    extracted["phone"] = p_m.group(1)
+                    confidences["phone"] = 0.95
+            elif target_field in ["name", "farmer_name"] and "name" not in extracted and "farmer_name" not in extracted:
+                clean_n = re.sub(r'^(?:my name is|मेरा नाम|माझे नाव|नाम)\s*', '', norm_text, flags=re.IGNORECASE).strip()
+                if len(clean_n) >= 2:
+                    extracted["name"] = clean_n
+                    extracted["farmer_name"] = clean_n
+                    confidences["name"] = 0.95
+            elif target_field == "village" and "village" not in extracted:
+                clean_v = re.sub(r'^(?:village|गाँव|गाव|ग्राम|from|in)\s*', '', norm_text, flags=re.IGNORECASE).strip()
+                if len(clean_v) >= 2:
+                    extracted["village"] = clean_v
+                    confidences["village"] = 0.95
+
         # Build missing fields and follow-ups
         required_keys = ["name", "phone", "village", "district", "crop", "acres", "yield", "costs"]
         missing: List[str] = []
@@ -839,6 +883,12 @@ class VoiceNLPService:
             if canon not in proposed_changes:
                 mapped_fields[k] = v
 
+        # Generate clean confirmation summary in farmer's language
+        summary_text = VoiceNLPService.generate_confirmation_summary(extracted, lang_code)
+        
+        # Get one specific follow-up question if required fields are missing
+        followup = VoiceNLPService.get_single_followup(missing, lang_code)
+
         return {
             "mapped_fields": mapped_fields,
             "extracted_fields": extracted,
@@ -848,6 +898,87 @@ class VoiceNLPService:
             "clarifications": clarifications,
             "contradictions": contradictions,
             "raw_transcript": raw,
+            "confirmation_summary": summary_text,
+            "followup_question": followup,
             "requires_review": True
+        }
+
+    @staticmethod
+    def generate_confirmation_summary(data: Dict[str, Any], lang_code: str = "hi") -> str:
+        """Generate a concise, human-friendly summary of the populated fields in the farmer's language."""
+        name = data.get("name") or data.get("farmer_name")
+        phone = data.get("phone")
+        crop = data.get("crop")
+        acres = data.get("acres")
+        yield_val = data.get("yield_quintals") or data.get("projected_yield") or data.get("yield")
+        costs = data.get("costs") or data.get("input_costs")
+        village = data.get("village")
+        district = data.get("district")
+
+        parts = []
+        if lang_code == "hi":
+            if name: parts.append(f"नाम: {name}")
+            if phone: parts.append(f"फोन: {phone}")
+            if crop: parts.append(f"फसल: {crop}")
+            if acres: parts.append(f"जमीन: {acres} एकड़")
+            if village: parts.append(f"गाँव: {village}")
+            if district: parts.append(f"जिला: {district}")
+            if yield_val: parts.append(f"उपज: {yield_val} क्विंटल/एकड़")
+            if costs: parts.append(f"कुल खर्च: ₹{int(costs):,}")
+            return " • ".join(parts) if parts else "कोई विवरण प्राप्त नहीं हुआ।"
+        elif lang_code == "mr":
+            if name: parts.append(f"नाव: {name}")
+            if phone: parts.append(f"फोन: {phone}")
+            if crop: parts.append(f"पीक: {crop}")
+            if acres: parts.append(f"जमीन: {acres} एकर")
+            if village: parts.append(f"गाव: {village}")
+            if district: parts.append(f"जिल्हा: {district}")
+            if yield_val: parts.append(f"उत्पादन: {yield_val} क्विंटल/एकर")
+            if costs: parts.append(f"खर्च: ₹{int(costs):,}")
+            return " • ".join(parts) if parts else "माहिती उपलब्ध नाही."
+        elif lang_code == "gu":
+            if name: parts.append(f"નામ: {name}")
+            if phone: parts.append(f"ફોન: {phone}")
+            if crop: parts.append(f"પાક: {crop}")
+            if acres: parts.append(f"જમીન: {acres} એકર")
+            if village: parts.append(f"ગામ: {village}")
+            if district: parts.append(f"જિલ્લો: {district}")
+            if yield_val: parts.append(f"ઉપજ: {yield_val} ક્વિન્ટલ/એકર")
+            if costs: parts.append(f"ખર્ચ: ₹{int(costs):,}")
+            return " • ".join(parts) if parts else "માહિતી ઉપલબ્ધ નથી."
+        else: # default English
+            if name: parts.append(f"Name: {name}")
+            if phone: parts.append(f"Phone: {phone}")
+            if crop: parts.append(f"Crop: {crop}")
+            if acres: parts.append(f"Land: {acres} acre{'s' if acres > 1 else ''}")
+            if village: parts.append(f"Village: {village}")
+            if district: parts.append(f"District: {district}")
+            if yield_val: parts.append(f"Yield: {yield_val} quintals/acre")
+            if costs: parts.append(f"Expenses: ₹{int(costs):,}")
+            return " • ".join(parts) if parts else "No details detected."
+
+    @staticmethod
+    def get_single_followup(missing_fields: List[str], lang_code: str = "hi") -> Optional[Dict[str, str]]:
+        """Return exactly one short, specific follow-up question for the first missing required field."""
+        if not missing_fields:
+            return None
+        first_missing = missing_fields[0]
+        q_map = FOLLOWUP_QUESTIONS.get(first_missing, {})
+        q_text = q_map.get(lang_code, q_map.get("en", f"Please provide {first_missing}."))
+        labels = {
+            "name": {"en": "Farmer Name", "hi": "किसान का नाम"},
+            "phone": {"en": "Phone Number", "hi": "मोबाइल नंबर"},
+            "village": {"en": "Village", "hi": "गाँव का नाम"},
+            "district": {"en": "District", "hi": "जिला"},
+            "crop": {"en": "Cultivated Crop", "hi": "फसल"},
+            "acres": {"en": "Land Acreage", "hi": "जमीन का रकबा"},
+            "yield": {"en": "Expected Yield", "hi": "अनुमानित पैदावार"},
+            "costs": {"en": "Cultivation Expenses", "hi": "कुल खर्च"}
+        }
+        lbl = labels.get(first_missing, {}).get(lang_code, labels.get(first_missing, {}).get("en", first_missing))
+        return {
+            "field": first_missing,
+            "question": q_text,
+            "field_label": lbl
         }
 

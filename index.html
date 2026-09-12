@@ -126,18 +126,43 @@
           <div class="voice-content">
             <div class="voice-badge-tag"><i class="fa-solid fa-headset"></i> Kisan Vani Multilingual Voice Assistant</div>
             <h3 class="voice-prompt-title" id="txt-voice-title">Speak or Enter Crop Details via Voice Intake</h3>
-            <p class="voice-prompt-msg" id="txt-voice-msg">"Speak your name, crop, land area, and district to automatically fill the form fields below."</p>
+            <p class="voice-prompt-msg" id="txt-voice-msg">"Speak your name, phone, crop, land area, expected yield, and input expenses to automatically populate your form."</p>
           </div>
         </div>
         <div class="voice-card-right">
-          <button class="btn btn-primary" id="btn-trigger-voice"><i class="fa-solid fa-microphone"></i> <span id="lbl-voice-btn">Speak Crop Details</span></button>
+          <button class="btn btn-primary btn-voice-hero" id="btn-trigger-voice"><i class="fa-solid fa-microphone"></i> <span id="lbl-voice-btn">बोलकर जानकारी भरें / Speak to Fill Form</span></button>
           <button class="btn btn-secondary" id="btn-speak-summary"><i class="fa-solid fa-volume-high"></i> Listen Explanation</button>
         </div>
 
-        <!-- Typed / Pasted Spoken Text Fallback -->
-        <div class="voice-typed-row" style="width: 100%; margin-top: 0.75rem; display: flex; gap: 0.5rem;">
-          <input type="text" id="input-spoken-transcript" class="form-control" placeholder="Or type / paste spoken sentence (e.g. मेरा नाम रमेश है। मैं गाँव रामपुर से हूँ। मेरे पास 2 एकड़ जमीन है और मैं टमाटर उगाता हूँ।)" style="flex: 1; font-size: 0.85rem;">
-          <button class="btn btn-primary" id="btn-parse-spoken-text" type="button" style="white-space: nowrap;"><i class="fa-solid fa-wand-magic-sparkles"></i> Extract & Fill Fields</button>
+        <!-- Recording in Progress Active Banner -->
+        <div id="voice-recording-indicator" class="recording-status-banner" style="display: none;">
+          <span class="pulse-recording-dot"></span>
+          <span id="txt-recording-status">🎙️ Recording in progress... बोलिए, हम सुन रहे हैं... (Listening...)</span>
+          <button class="btn btn-sm btn-outline-danger" id="btn-stop-voice" type="button" style="margin-left:auto;"><i class="fa-solid fa-circle-stop"></i> Done Speaking</button>
+        </div>
+
+        <!-- Simple Confirmation Summary Card (Farmer Review) -->
+        <div id="voice-confirmation-card" class="voice-confirmation-box" style="display: none; width: 100%; margin-top: 0.75rem; background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 10px; padding: 0.85rem 1rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+            <div style="font-weight: 700; color: #166534; font-size: 0.92rem;"><i class="fa-solid fa-circle-check text-success"></i> <span id="lbl-summary-heading">Details Recognized & Populated:</span></div>
+            <button class="btn btn-sm btn-outline" id="btn-voice-listen-summary" type="button" title="Listen Summary Aloud"><i class="fa-solid fa-volume-high"></i> Listen Aloud</button>
+          </div>
+          <div id="voice-summary-text" style="font-size: 0.88rem; color: #14532d; background: #ffffff; border: 1px solid #bbf7d0; border-radius: 6px; padding: 0.65rem; margin-bottom: 0.65rem; line-height: 1.45;"></div>
+          <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+            <button class="btn btn-sm btn-success" id="btn-voice-confirm" type="button"><i class="fa-solid fa-check-double"></i> Confirm & Continue</button>
+            <button class="btn btn-sm btn-outline" id="btn-voice-record-again" type="button"><i class="fa-solid fa-rotate-left"></i> Record Again</button>
+            <button class="btn btn-sm btn-secondary" id="btn-voice-edit-form" type="button"><i class="fa-solid fa-pen-to-square"></i> Edit Details</button>
+          </div>
+        </div>
+
+        <!-- Follow-up Question Card (One specific question if required info missing) -->
+        <div id="voice-followup-card" class="voice-followup-box" style="display: none; width: 100%; margin-top: 0.75rem; background: #eff6ff; border: 1.5px solid #93c5fd; border-radius: 10px; padding: 0.85rem 1rem;">
+          <div style="font-weight: 700; color: #1e40af; margin-bottom: 0.3rem;"><i class="fa-solid fa-circle-question"></i> <span id="lbl-followup-title">One Quick Detail Needed:</span></div>
+          <div id="txt-followup-question" style="font-size: 0.88rem; color: #1e3a8a; margin-bottom: 0.5rem; font-weight: 500;"></div>
+          <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <button class="btn btn-sm btn-primary" id="btn-answer-followup-voice" type="button"><i class="fa-solid fa-microphone"></i> Answer by Voice</button>
+            <button class="btn btn-sm btn-outline" id="btn-listen-followup" type="button"><i class="fa-solid fa-volume-high"></i> Listen Question</button>
+          </div>
         </div>
 
         <!-- Conflict Resolution Box -->
@@ -150,10 +175,14 @@
           </div>
         </div>
 
-        <!-- Voice Status Alert Banner -->
-        <div id="voice-status-alert" class="voice-status-box" style="display: none; width: 100%; margin-top: 0.75rem; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 0.65rem 1rem; font-size: 0.85rem; color: #166534;">
-          <i class="fa-solid fa-circle-check"></i> <span id="voice-status-text">Fields populated from voice. Please review the highlighted fields below before clicking 'Calculate Transparent Credit Sizing'.</span>
-        </div>
+        <!-- Optional Collapsible Transcript Section (No copy/paste needed) -->
+        <details id="transcript-details" class="transcript-collapsible" style="width: 100%; margin-top: 0.75rem; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 8px; padding: 0.5rem 0.75rem;">
+          <summary style="cursor: pointer; font-size: 0.82rem; color: #64748b; font-weight: 600; user-select: none;"><i class="fa-solid fa-file-lines"></i> View / Edit Transcript (Optional)</summary>
+          <div class="voice-typed-row" style="width: 100%; margin-top: 0.5rem; display: flex; gap: 0.5rem;">
+            <input type="text" id="input-spoken-transcript" class="form-control" placeholder="Spoken transcript appears here (or type/paste)..." style="flex: 1; font-size: 0.85rem;">
+            <button class="btn btn-secondary btn-sm" id="btn-parse-spoken-text" type="button" style="white-space: nowrap;"><i class="fa-solid fa-wand-magic-sparkles"></i> Update from Transcript</button>
+          </div>
+        </details>
 
         <div class="voice-quick-queries">
           <span class="quick-label">Try preset farmer profiles:</span>

@@ -578,7 +578,7 @@ with tab1:
             st.session_state.ff_manually_edited = set()
         st.session_state.ff_manually_edited.add(field_name)
 
-    def apply_transcript(transcript_text: str, lang: str):
+    def apply_transcript(transcript_text: str, lang: str, target_field: str = None):
         if not transcript_text or not transcript_text.strip():
             return
         
@@ -608,9 +608,11 @@ with tab1:
             current_data["costs"] = tot
             current_data["input_costs"] = tot
 
-        result = VoiceNLPService.parse_transcript_to_fields(cleaned, lang_code=lang, current_data=current_data)
+        result = VoiceNLPService.parse_transcript_to_fields(cleaned, lang_code=lang, current_data=current_data, target_field=target_field)
         st.session_state.clarifications = result.get("clarifications", [])
         st.session_state.contradictions = result.get("contradictions", [])
+        st.session_state.confirmation_summary = result.get("confirmation_summary", "")
+        st.session_state.followup_question = result.get("followup_question")
         
         conflicts = result.get("proposed_changes", {})
         st.session_state.pending_conflicts = conflicts
@@ -662,24 +664,107 @@ with tab1:
 
         st.rerun()
 
-    with voice_col1:
-        st.write(T["voice_record_prompt"])
-        recorded_audio = st.audio_input("Microphone Input (Click to Record Voice)")
-        if recorded_audio:
-            audio_bytes = recorded_audio.read()
-            audio_hash = hash(audio_bytes)
-            if st.session_state.last_processed_audio_hash != audio_hash:
-                st.session_state.last_processed_audio_hash = audio_hash
-                with st.spinner("Transcribing speech via Conformer ASR / Google STT..."):
-                    parsed = VoiceNLPService.transcribe_audio_bytes(audio_bytes, cur_lang_code)
-                    if parsed.get("success") and parsed.get("raw_transcript"):
-                        apply_transcript(parsed["raw_transcript"], cur_lang_code)
-                    else:
-                        err_msg = parsed.get("error", "Speech could not be understood clearly.")
-                        st.warning(f"⚠️ {err_msg} You can try again or use the typed input box below.")
+    # Prominent Hero Voice Input (Zero Copy/Paste)
+    st.markdown("""
+        <div style="background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%); border: 2px solid #22c55e; border-radius: 12px; padding: 1rem 1.25rem; margin-bottom: 1rem;">
+            <div style="font-size: 1.15rem; font-weight: 700; color: #15803d; margin-bottom: 0.25rem;">
+                🎙️ बोलकर जानकारी भरें / Speak to Fill Form
+            </div>
+            <div style="font-size: 0.88rem; color: #166534;">
+                माइक पर टैप करके अपनी जानकारी बोलें (जैसे नाम, मोबाइल नंबर, फसल, जमीन, पैदावार और कुल खर्च)। बोलते ही सभी फ़ील्ड अपने-आप भर जाएंगे।
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
 
-    with voice_col2:
-        st.write(T["voice_sample_prompt"])
+    recorded_audio = st.audio_input("बोलकर जानकारी भरें / Speak to Fill Form", key="hero_farmer_audio_input")
+    if recorded_audio:
+        audio_bytes = recorded_audio.read()
+        audio_hash = hash(audio_bytes)
+        if st.session_state.last_processed_audio_hash != audio_hash:
+            st.session_state.last_processed_audio_hash = audio_hash
+            with st.spinner("🎙️ Recognizing speech and filling form fields automatically..."):
+                parsed = VoiceNLPService.transcribe_audio_bytes(audio_bytes, cur_lang_code)
+                if parsed.get("success") and parsed.get("raw_transcript"):
+                    apply_transcript(parsed["raw_transcript"], cur_lang_code)
+                else:
+                    err_msg = parsed.get("error", "Speech could not be understood clearly.")
+                    st.warning(f"⚠️ {err_msg} You can try speaking again or use the optional transcript section below.")
+
+    # Simple Confirmation Summary Card (Farmer Review)
+    if st.session_state.get("confirmation_summary"):
+        st.success(f"📋 **पहचानी गई जानकारी / Recognized Details:**\n\n**{st.session_state.confirmation_summary}**")
+        btn_col1, btn_col2, btn_col3, btn_col4 = st.columns([1.5, 1.2, 1.2, 1.5])
+        with btn_col1:
+            if st.button("✅ Confirm & Continue", key="btn_confirm_continue", use_container_width=True):
+                st.session_state.farmer_confirmed = True
+                st.toast("✅ Details confirmed! Please review the form below and click 'Calculate Safe Credit Limit' when ready.")
+        with btn_col2:
+            if st.button("🔄 Record Again", key="btn_record_again", use_container_width=True):
+                st.session_state.last_processed_audio_hash = None
+                st.session_state.confirmation_summary = None
+                st.session_state.followup_question = None
+                st.session_state.current_transcript = ""
+                st.rerun()
+        with btn_col3:
+            if st.button("✏️ Edit Details", key="btn_edit_details", use_container_width=True):
+                st.toast("👉 You can directly edit the fields in the form below.")
+        with btn_col4:
+            if st.button("🔊 Listen Summary Aloud", key="btn_listen_summary_aloud", use_container_width=True):
+                try:
+                    from backend.services.voice_service import voice_service
+                    ok, a_bytes, mime = voice_service.synthesize_speech(st.session_state.confirmation_summary, cur_lang_code)
+                    if ok and a_bytes:
+                        st.audio(a_bytes, format=mime, autoplay=True)
+                except Exception:
+                    st.info(f"🔊 {st.session_state.confirmation_summary}")
+
+    # Follow-up Question Card (One specific targeted question if info is missing)
+    if st.session_state.get("followup_question"):
+        followup_data = st.session_state.followup_question
+        st.info(f"❓ **एक जानकारी और चाहिए / One Quick Detail Needed:**\n\n**{followup_data['question']}**")
+        f_col1, f_col2 = st.columns([3, 1])
+        with f_col1:
+            followup_audio = st.audio_input(f"🎙️ Answer by Voice ({followup_data.get('field_label', 'detail')})", key="followup_audio_box")
+            if followup_audio:
+                f_bytes = followup_audio.read()
+                f_hash = hash(f_bytes)
+                if st.session_state.get("last_followup_hash") != f_hash:
+                    st.session_state.last_followup_hash = f_hash
+                    f_parsed = VoiceNLPService.transcribe_audio_bytes(f_bytes, cur_lang_code)
+                    if f_parsed.get("success") and f_parsed.get("raw_transcript"):
+                        apply_transcript(f_parsed["raw_transcript"], cur_lang_code, target_field=followup_data.get("field"))
+        with f_col2:
+            if st.button("🔊 Listen Question", key="btn_listen_followup", use_container_width=True):
+                try:
+                    from backend.services.voice_service import voice_service
+                    ok, a_bytes, mime = voice_service.synthesize_speech(followup_data['question'], cur_lang_code)
+                    if ok and a_bytes:
+                        st.audio(a_bytes, format=mime, autoplay=True)
+                except Exception:
+                    st.info(f"🔊 {followup_data['question']}")
+
+    # Optional Collapsible Transcript & Scenarios Section (No copy/paste needed)
+    with st.expander("📝 View / Edit Transcript (Optional)", expanded=False):
+        st.caption("Spoken transcript appears here automatically. You can also type manually or select a regional demo scenario:")
+        typed_col1, typed_col2 = st.columns([4, 1])
+        with typed_col1:
+            typed_utterance = st.text_input(
+                "Spoken Text Input",
+                value=st.session_state.current_transcript,
+                placeholder="My name is Ramesh Patel, phone 9876543210. I am cultivating 2.0 acres of Tomato in Pimpalgaon, Nashik. Expecting 18 quintals per acre yield and total input expenses are 24000 rupees.",
+                label_visibility="collapsed",
+                key="input_typed_speech_box"
+            )
+        with typed_col2:
+            if st.button("⚡ Update from Transcript", key="btn_parse_typed_speech", use_container_width=True):
+                user_text = typed_utterance or st.session_state.current_transcript
+                if user_text and user_text.strip():
+                    apply_transcript(user_text.strip(), cur_lang_code)
+                else:
+                    st.warning("Please enter a spoken sentence first.")
+
+        st.markdown("---")
+        st.write("Or try a 1-click regional demo scenario:")
         sample_scenarios = {
             "hi": "Hindi — Nashik Tomato Smallholder (2.0 Acres, ₹24,000 Costs)",
             "mr": "Marathi — Vidarbha Cotton Smallholder (2.5 Acres, ₹26,000 Costs)",
@@ -703,40 +788,10 @@ with tab1:
             sample = VoiceNLPService.get_sample_utterance(selected_scenario_code)
             apply_transcript(sample["transcript"], selected_scenario_code)
 
-    # Vernacular typed speech input for fallback and verification
-    st.markdown("##### ⌨️ Spoken Speech Text / Vernacular Fallback Input")
-    st.caption("You can also type, paste, or review spoken utterances directly (e.g. *“My name is Ramesh Patel, phone 9876543210. I am cultivating 2.0 acres of Tomato in Pimpalgaon, Nashik. Expecting 18 quintals per acre yield and total input expenses are 24000 rupees.”*):")
-    typed_col1, typed_col2 = st.columns([4, 1])
-    with typed_col1:
-        typed_utterance = st.text_input(
-            "Spoken Text Input",
-            value=st.session_state.current_transcript,
-            placeholder="My name is Ramesh Patel, phone 9876543210. I am cultivating 2.0 acres of Tomato in Pimpalgaon, Nashik. Expecting 18 quintals per acre yield and total input expenses are 24000 rupees.",
-            label_visibility="collapsed",
-            key="input_typed_speech_box"
-        )
-    with typed_col2:
-        if st.button("⚡ Extract & Fill Fields", key="btn_parse_typed_speech", use_container_width=True):
-            user_text = typed_utterance or st.session_state.current_transcript
-            if user_text and user_text.strip():
-                apply_transcript(user_text.strip(), cur_lang_code)
-            else:
-                st.warning("Please enter or record a spoken sentence first.")
-
-    # Transcript Review Box
-    if st.session_state.current_transcript:
-        st.info(f"**{T['transcript_box']}**\n\n> *\"{st.session_state.current_transcript}\"*")
-
     # Contradictions Warning
     if st.session_state.contradictions:
         for contra in st.session_state.contradictions:
             st.warning(f"⚠️ **Clarification Needed:** {contra}")
-
-    # Clarification Prompts
-    if st.session_state.clarifications:
-        with st.expander("ℹ️ Follow-up Clarification Prompts (Unclear / Missing Information)", expanded=True):
-            for clar in st.session_state.clarifications:
-                st.write(f"- {clar}")
 
     # Conflict Resolution Banner
     if st.session_state.pending_conflicts:

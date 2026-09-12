@@ -205,6 +205,7 @@ class VoiceParseRequest(BaseModel):
     transcript: str
     lang_code: str = "hi"
     current_data: Optional[Dict[str, Any]] = None
+    target_field: Optional[str] = None
 
 
 class ConsentRecordRequest(BaseModel):

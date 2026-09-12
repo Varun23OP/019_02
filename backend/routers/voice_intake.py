@@ -41,7 +41,8 @@ async def parse_spoken_transcript(request: VoiceParseRequest):
         parsed = VoiceNLPService.parse_transcript_to_fields(
             transcript=request.transcript,
             lang_code=request.lang_code,
-            current_data=request.current_data
+            current_data=request.current_data,
+            target_field=request.target_field
         )
         return parsed
     except Exception as e:

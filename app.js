@@ -455,6 +455,34 @@ function hashString(str) {
 let recognitionInstance = null;
 const userManuallyEditedFields = new Set();
 let pendingVoiceConflicts = null;
+let currentFollowupField = null;
+let lastSummarySpokenText = "";
+
+function speakUtterance(text, langCode) {
+  if (!('speechSynthesis' in window)) return;
+  try {
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.resume();
+    const cleanText = text.replace(/₹\s*([0-9,]+)/g, "$1 rupees ").replace(/•/g, ", ").trim();
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+    utterance.rate = 0.95;
+    utterance.pitch = 1.0;
+    
+    const voices = window.speechSynthesis.getVoices() || [];
+    const targetPrefix = (langCode || currentLang || "hi").substring(0, 2);
+    const matchedVoice = voices.find(v => (v.lang || "").toLowerCase().startsWith(targetPrefix));
+    if (matchedVoice) {
+      utterance.voice = matchedVoice;
+      utterance.lang = matchedVoice.lang;
+    } else {
+      utterance.lang = targetPrefix === "hi" ? "hi-IN" : "en-IN";
+    }
+    window._activeUtterance = utterance;
+    window.speechSynthesis.speak(utterance);
+  } catch (e) {
+    console.warn("TTS speakUtterance error:", e);
+  }
+}
 
 function initVoiceSimulator() {
   const micBtn = document.getElementById("btn-voice-mic");
@@ -462,8 +490,10 @@ function initVoiceSimulator() {
   const summaryBtn = document.getElementById("btn-speak-summary");
   const titleEl = document.getElementById("txt-voice-title");
   const msgEl = document.getElementById("txt-voice-msg");
+  const recordingBanner = document.getElementById("voice-recording-indicator");
+  const stopVoiceBtn = document.getElementById("btn-stop-voice");
 
-  // Typed Speech Input Fallback
+  // Optional Typed Speech Input Fallback
   const typedInput = document.getElementById("input-spoken-transcript");
   const parseBtn = document.getElementById("btn-parse-spoken-text");
   if (parseBtn && typedInput) {
@@ -484,6 +514,74 @@ function initVoiceSimulator() {
     });
   }
 
+  // Confirmation Summary Action Buttons
+  const confirmBtn = document.getElementById("btn-voice-confirm");
+  const recordAgainBtn = document.getElementById("btn-voice-record-again");
+  const editFormBtn = document.getElementById("btn-voice-edit-form");
+  const listenSummaryBtn = document.getElementById("btn-voice-listen-summary");
+
+  if (confirmBtn) {
+    confirmBtn.addEventListener("click", () => {
+      if (titleEl) titleEl.innerText = "✅ Details Confirmed by Farmer";
+      if (msgEl) msgEl.innerText = "Your information has been verified. You can now click 'Calculate Transparent Credit Sizing' below whenever you are ready.";
+      const calcBtn = document.getElementById("btn-calc-credit");
+      if (calcBtn) {
+        calcBtn.scrollIntoView({ behavior: "smooth", block: "center" });
+        calcBtn.classList.add("voice-updated-highlight");
+        setTimeout(() => calcBtn.classList.remove("voice-updated-highlight"), 3000);
+      }
+    });
+  }
+
+  if (recordAgainBtn) {
+    recordAgainBtn.addEventListener("click", () => {
+      const confirmCard = document.getElementById("voice-confirmation-card");
+      if (confirmCard) confirmCard.style.display = "none";
+      const followupCard = document.getElementById("voice-followup-card");
+      if (followupCard) followupCard.style.display = "none";
+      const conflictBanner = document.getElementById("voice-conflict-banner");
+      if (conflictBanner) conflictBanner.style.display = "none";
+      startLiveVoiceRecognition();
+    });
+  }
+
+  if (editFormBtn) {
+    editFormBtn.addEventListener("click", () => {
+      const firstInput = document.getElementById("input-farmer-name");
+      if (firstInput) {
+        firstInput.scrollIntoView({ behavior: "smooth", block: "center" });
+        firstInput.focus();
+      }
+    });
+  }
+
+  if (listenSummaryBtn) {
+    listenSummaryBtn.addEventListener("click", () => {
+      if (lastSummarySpokenText) {
+        speakUtterance(lastSummarySpokenText, currentLang);
+      }
+    });
+  }
+
+  // Follow-up Question Actions
+  const answerFollowupBtn = document.getElementById("btn-answer-followup-voice");
+  const listenFollowupBtn = document.getElementById("btn-listen-followup");
+  if (answerFollowupBtn) {
+    answerFollowupBtn.addEventListener("click", () => {
+      if (currentFollowupField) {
+        startLiveVoiceRecognition(currentFollowupField);
+      }
+    });
+  }
+  if (listenFollowupBtn) {
+    listenFollowupBtn.addEventListener("click", () => {
+      const qEl = document.getElementById("txt-followup-question");
+      if (qEl && qEl.innerText) {
+        speakUtterance(qEl.innerText, currentLang);
+      }
+    });
+  }
+
   // Conflict Resolution Buttons
   const acceptConflictsBtn = document.getElementById("btn-accept-voice-conflicts");
   const rejectConflictsBtn = document.getElementById("btn-reject-voice-conflicts");
@@ -497,12 +595,6 @@ function initVoiceSimulator() {
         }
         const banner = document.getElementById("voice-conflict-banner");
         if (banner) banner.style.display = "none";
-        const statusAlert = document.getElementById("voice-status-alert");
-        const statusText = document.getElementById("voice-status-text");
-        if (statusAlert && statusText) {
-          statusText.innerText = `✅ Accepted spoken changes for [${acceptedLabels.join(", ")}]. Please review your inputs and click 'Calculate Transparent Credit Sizing' when ready.`;
-          statusAlert.style.display = "block";
-        }
         pendingVoiceConflicts = null;
       }
     });
@@ -539,10 +631,19 @@ function initVoiceSimulator() {
   // Check if browser supports Web Speech API Recognition
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   
-  const startLiveVoiceRecognition = () => {
-    micBtn.classList.add("listening");
-    titleEl.innerText = "🎙️ Listening... Speak your crop, land area, & district now";
-    msgEl.innerText = `Microphone active in ${currentLang.toUpperCase()} - speak in Hindi or regional language...`;
+  const startLiveVoiceRecognition = (targetMissingField = null) => {
+    currentFollowupField = targetMissingField;
+    if (micBtn) micBtn.classList.add("listening");
+    if (triggerBtn) triggerBtn.classList.add("listening");
+    if (recordingBanner) recordingBanner.style.display = "flex";
+    
+    if (targetMissingField) {
+      if (titleEl) titleEl.innerText = `🎙️ Listening for ${formatFieldLabel(targetMissingField)}...`;
+      if (msgEl) msgEl.innerText = "बोलिए, हम आपकी आवाज़ रिकॉर्ड कर रहे हैं...";
+    } else {
+      if (titleEl) titleEl.innerText = "🎙️ Listening... Speak your crop, land area, yield & costs";
+      if (msgEl) msgEl.innerText = `Microphone active in ${currentLang.toUpperCase()} - speak in Hindi or regional language...`;
+    }
 
     if (SpeechRecognition) {
       try {
@@ -570,22 +671,32 @@ function initVoiceSimulator() {
             .map(result => result[0].transcript)
             .join("");
           
-          msgEl.innerText = `"${transcript}"`;
+          if (msgEl) msgEl.innerText = `"${transcript}"`;
 
           if (event.results[0].isFinal) {
-            processVoiceTranscript(transcript);
+            if (recordingBanner) recordingBanner.style.display = "none";
+            if (micBtn) micBtn.classList.remove("listening");
+            if (triggerBtn) triggerBtn.classList.remove("listening");
+            // Automatically process transcript and populate fields! (No copy/paste or manual button required)
+            processVoiceTranscript(transcript, targetMissingField);
           }
         };
 
         recognitionInstance.onerror = (event) => {
           console.warn("Speech Recognition error / permission denied:", event.error);
-          micBtn.classList.remove("listening");
-          titleEl.innerText = "⚠️ Microphone Inactive";
-          msgEl.innerText = `Microphone could not be accessed (${event.error || "denied"}). You can type or paste your spoken sentence in the input box below.`;
+          if (recordingBanner) recordingBanner.style.display = "none";
+          if (micBtn) micBtn.classList.remove("listening");
+          if (triggerBtn) triggerBtn.classList.remove("listening");
+          if (titleEl) titleEl.innerText = "⚠️ Microphone Inactive";
+          if (msgEl) msgEl.innerText = `Microphone could not be accessed (${event.error || "denied"}). You can type your sentence in the transcript box below.`;
+          const detailsEl = document.getElementById("transcript-details");
+          if (detailsEl) detailsEl.open = true;
         };
 
         recognitionInstance.onend = () => {
-          micBtn.classList.remove("listening");
+          if (recordingBanner) recordingBanner.style.display = "none";
+          if (micBtn) micBtn.classList.remove("listening");
+          if (triggerBtn) triggerBtn.classList.remove("listening");
         };
 
         recognitionInstance.start();
@@ -596,14 +707,29 @@ function initVoiceSimulator() {
     }
     
     // Browser does not support Web Speech API
-    micBtn.classList.remove("listening");
-    titleEl.innerText = "ℹ️ Microphone API Not Supported";
-    msgEl.innerText = "Your browser does not support live microphone recognition. Please type or paste your spoken sentence in the text box below.";
+    if (recordingBanner) recordingBanner.style.display = "none";
+    if (micBtn) micBtn.classList.remove("listening");
+    if (triggerBtn) triggerBtn.classList.remove("listening");
+    if (titleEl) titleEl.innerText = "ℹ️ Microphone API Not Supported";
+    if (msgEl) msgEl.innerText = "Your browser does not support live microphone recognition. You can type in the transcript box below.";
+    const detailsEl = document.getElementById("transcript-details");
+    if (detailsEl) detailsEl.open = true;
   };
 
-  micBtn.addEventListener("click", startLiveVoiceRecognition);
-  triggerBtn.addEventListener("click", startLiveVoiceRecognition);
-  summaryBtn.addEventListener("click", speakTextSummary);
+  if (stopVoiceBtn) {
+    stopVoiceBtn.addEventListener("click", () => {
+      if (recognitionInstance) {
+        recognitionInstance.stop();
+      }
+      if (recordingBanner) recordingBanner.style.display = "none";
+      if (micBtn) micBtn.classList.remove("listening");
+      if (triggerBtn) triggerBtn.classList.remove("listening");
+    });
+  }
+
+  if (micBtn) micBtn.addEventListener("click", () => startLiveVoiceRecognition());
+  if (triggerBtn) triggerBtn.addEventListener("click", () => startLiveVoiceRecognition());
+  if (summaryBtn) summaryBtn.addEventListener("click", speakTextSummary);
 }
 
 function getFieldElementId(key) {
@@ -791,8 +917,8 @@ function normalizeSpokenNumbersInText(text) {
   return res;
 }
 
-// Client-side fallback NLP parser for offline / direct browser use
-function clientSideVoiceParser(text, currentData) {
+/// Client-side fallback NLP parser for offline / direct browser use
+function clientSideVoiceParser(text, currentData, targetMissingField = null) {
   // Normalize Indic digits across 8 regional scripts
   let norm = text.replace(/[\u0660-\u0669\u06F0-\u06F9\u0966-\u096F\u09E6-\u09EF\u0A66-\u0A6F\u0AE6-\u0AEF\u0B66-\u0B6F\u0BE6-\u0BEF\u0C66-\u0C6F\u0CE6-\u0CEF]/g, d => d.charCodeAt(0) & 0xf);
   norm = normalizeSpokenNumbersInText(norm);
@@ -812,8 +938,8 @@ function clientSideVoiceParser(text, currentData) {
     }
   }
 
-  // Phone Number (10 digits starting with 6-9)
-  const phoneMatch = norm.match(/(?:phone|mobile|नंबर|मोबाईल|నంబర్)?\s*[:\s]?([6-9]\d{9})\b/i);
+  // Phone Number (continuous digits starting with 6-9 or prefixed by phone keyword)
+  const phoneMatch = norm.match(/(?:phone|mobile|नंबर|मोबाईल|నంబర్|फोन|फ़ोन|मोबाइल|ఫోన్|மொபைல்)\s*[:\s]?\b([6-9]\d{7,11})\b/i) || norm.match(/\b([6-9]\d{8,11})\b/);
   if (phoneMatch) {
     extracted.phone = phoneMatch[1];
   }
@@ -847,7 +973,7 @@ function clientSideVoiceParser(text, currentData) {
     { name: "Wheat", matches: ["wheat", "gehun", "गेहूं", "ਕਣਕ"] },
     { name: "Soybean", matches: ["soybean", "soya", "सोयाबीन"] },
     { name: "Cotton", matches: ["cotton", "kapas", "कपास", "कापूस", "పత్తి"] },
-    { name: "Maize", matches: ["maize", "makka", "मक्का", "मका", "మొక్కజొన్న"] }
+    { name: "Maize", matches: ["maize", "makka", "मक्का", "मका", "మొక్కಜೊన్న"] }
   ];
   for (const c of crops) {
     if (c.matches.some(m => lower.includes(m))) {
@@ -877,9 +1003,10 @@ function clientSideVoiceParser(text, currentData) {
     extracted.acres = acreFound;
   }
 
-  // Yield detection (e.g. Expecting 18 quintals per acre yield)
-  const yieldMatch = norm.match(/(?:expecting|yield|उपज|उत्पादन|पैदावार)\s*(?:is|of|are)?\s*(\d+(?:\.\d+)?)\s*(?:quintals?|qtl|क्विंटल)?/i) ||
-                     norm.match(/(\d+(?:\.\d+)?)\s*(?:quintals?|qtl|क्विंटल)\s*(?:per\s+acre\s+yield|प्रति\s+एकड़|उपज|yield)/i);
+  // Yield detection (e.g. Expected 15 quintals per acre yield)
+  const yieldMatch = norm.match(/(?:expecting|expected|yield|उपज|उत्पादन|पैदावार)\s*(?:is|of|are)?\s*(\d+(?:\.\d+)?)\s*(?:quintals?|qtl|क्विंटल)?/i) ||
+                     norm.match(/(\d+(?:\.\d+)?)\s*(?:quintals?|qtl|क्विंटल)\s*(?:per\s+acre\s+yield|प्रति\s+एकड़|उपज|yield)?/i) ||
+                     norm.match(/(\d+(?:\.\d+)?)\s*(?:quintals?|qtl|क्विंटल)/i);
   if (yieldMatch) {
     const yVal = parseFloat(yieldMatch[1]);
     extracted.yield_quintals = yVal;
@@ -887,9 +1014,10 @@ function clientSideVoiceParser(text, currentData) {
     extracted.projected_yield = yVal;
   }
 
-  // Costs / Input Expenses detection (e.g. total input expenses are 24000 rupees)
+  // Costs / Input Expenses detection (e.g. total input expenses are 3000 rupees)
   const costMatch = norm.match(/(?:expenses?|costs?|खर्च|लागत|खर्चा)\s*(?:are|is|of)?\s*(?:rupees?|rs\.?|₹)?\s*(\d+)/i) ||
-                    norm.match(/(\d+)\s*(?:rupees|रुपये|रु)\s*(?:total\s+input\s+expenses?|expenses?|costs?|खर्च|लागत)/i) ||
+                    norm.match(/(\d+)\s*(?:rupees|रुपये|रु|₹)\s*(?:total\s+input\s+expenses?|expenses?|costs?|खर्च|लागत)?/i) ||
+                    norm.match(/(?:₹|rs\.?)\s*(\d+)/i) ||
                     norm.match(/(\d+)\s*(?:रुपये|rupees)/i);
   if (costMatch) {
     const cVal = parseFloat(costMatch[1]);
@@ -923,6 +1051,47 @@ function clientSideVoiceParser(text, currentData) {
     extracted.irrigation = "Canal";
   }
 
+  // Target Field Fallbacks when answering a specific follow-up question
+  if (targetMissingField) {
+    if ((targetMissingField === "yield" || targetMissingField === "yield_quintals") && !extracted.yield) {
+      const loneNum = norm.match(/(\d+(?:\.\d+)?)/);
+      if (loneNum) {
+        const v = parseFloat(loneNum[1]);
+        extracted.yield = v;
+        extracted.yield_quintals = v;
+        extracted.projected_yield = v;
+      }
+    } else if ((targetMissingField === "costs" || targetMissingField === "input_costs") && !extracted.costs) {
+      const loneNum = norm.match(/(\d{3,7})/);
+      if (loneNum) {
+        const v = parseFloat(loneNum[1]);
+        extracted.costs = v;
+        extracted.input_costs = v;
+      }
+    } else if (targetMissingField === "acres" && !extracted.acres) {
+      const loneNum = norm.match(/(\d+(?:\.\d+)?)/);
+      if (loneNum) {
+        extracted.acres = parseFloat(loneNum[1]);
+      }
+    } else if (targetMissingField === "phone" && !extracted.phone) {
+      const pNum = norm.match(/([6-9]\d{7,11})/) || norm.match(/(\d{8,12})/);
+      if (pNum) {
+        extracted.phone = pNum[1];
+      }
+    } else if ((targetMissingField === "name" || targetMissingField === "farmer_name") && !extracted.name) {
+      const cleanName = norm.replace(/^(?:my name is|मेरा नाम|माझे नाव|नाम)\s*/i, "").trim();
+      if (cleanName.length >= 2) {
+        extracted.name = cleanName;
+        extracted.farmer_name = cleanName;
+      }
+    } else if (targetMissingField === "village" && !extracted.village) {
+      const cleanVillage = norm.replace(/^(?:village|गाँव|गाव|ग्राम|from|in)\s*/i, "").trim();
+      if (cleanVillage.length >= 2) {
+        extracted.village = cleanVillage;
+      }
+    }
+  }
+
   // Detect proposed changes / conflicts against currentData using float tolerance
   const proposed = {};
   if (currentData) {
@@ -944,16 +1113,72 @@ function clientSideVoiceParser(text, currentData) {
     }
   }
 
+  // Generate client-side confirmation summary
+  const summaryParts = [];
+  const nameVal = extracted.name || extracted.farmer_name;
+  if (nameVal) summaryParts.push(`Name: ${nameVal}`);
+  if (extracted.phone) summaryParts.push(`Phone: ${extracted.phone}`);
+  if (extracted.crop) summaryParts.push(`Crop: ${extracted.crop}`);
+  if (extracted.acres) summaryParts.push(`Land: ${extracted.acres} Acre${extracted.acres > 1 ? 's' : ''}`);
+  if (extracted.village) summaryParts.push(`Village: ${extracted.village}`);
+  if (extracted.district) summaryParts.push(`District: ${extracted.district}`);
+  if (extracted.yield || extracted.yield_quintals) summaryParts.push(`Yield: ${extracted.yield || extracted.yield_quintals} Qtl/Ac`);
+  if (extracted.costs || extracted.input_costs) summaryParts.push(`Expenses: ₹${Number(extracted.costs || extracted.input_costs).toLocaleString('en-IN')}`);
+  const summaryText = summaryParts.length > 0 ? summaryParts.join(" • ") : "No details recognized.";
+
+  // Missing fields check for single follow-up question
+  const requiredKeys = ["name", "phone", "village", "district", "crop", "acres", "yield", "costs"];
+  const missing = [];
+  for (const k of requiredKeys) {
+    if (k === "yield") {
+      const hasYield = (extracted.yield || extracted.yield_quintals || extracted.projected_yield) ||
+                       (currentData && (currentData.yield || currentData.yield_quintals || currentData.projected_yield));
+      if (!hasYield) missing.push("yield");
+    } else if (k === "costs") {
+      const hasCosts = (extracted.costs || extracted.input_costs) ||
+                       (currentData && (currentData.costs || currentData.input_costs));
+      if (!hasCosts) missing.push("costs");
+    } else {
+      const val = extracted[k] || (currentData ? currentData[k] : null);
+      if (!val) missing.push(k);
+    }
+  }
+
+  let followup = null;
+  if (missing.length > 0) {
+    const followupMap = {
+      name: { en: "Please speak the farmer's full name.", hi: "कृपया किसान का पूरा नाम बोलकर बताएं।" },
+      phone: { en: "Please speak your mobile number.", hi: "कृपया अपना मोबाइल नंबर बोलकर बताएं।" },
+      village: { en: "Please speak your village name.", hi: "कृपया अपने गाँव का नाम बोलकर बताएं।" },
+      district: { en: "In which district is your farm located?", hi: "आपका खेत किस जिले में है?" },
+      crop: { en: "Which crop are you cultivating this season?", hi: "कृपया बताएं कि आप कौन सी फसल उगा रहे हैं?" },
+      acres: { en: "How many acres of land are you cultivating?", hi: "आपके पास कितने एकड़ कृषि भूमि है?" },
+      yield: { en: "What is your expected yield per acre in quintals?", hi: "प्रति एकड़ आपकी अनुमानित पैदावार कितने क्विंटल है?" },
+      costs: { en: "What are your total input cultivation expenses in rupees?", hi: "खाद, बीज और मजदूरी में कुल कितना खर्च आया है?" }
+    };
+    const firstMissing = missing[0];
+    const qObj = followupMap[firstMissing] || { en: `Please provide ${firstMissing}.`, hi: `कृपया ${firstMissing} बताएं।` };
+    const qText = (typeof currentLang !== "undefined" && currentLang === "hi") ? qObj.hi : qObj.en;
+    followup = {
+      field: firstMissing,
+      question: qText,
+      field_label: formatFieldLabel(firstMissing)
+    };
+  }
+
   return {
     raw_transcript: text,
     extracted_fields: extracted,
     mapped_fields: extracted,
-    proposed_changes: proposed
+    proposed_changes: proposed,
+    confirmation_summary: summaryText,
+    followup_question: followup,
+    missing_fields: missing
   };
 }
 
 // Master Voice Transcript Processor
-async function processVoiceTranscript(transcript) {
+async function processVoiceTranscript(transcript, targetMissingField = null) {
   if (!transcript || !transcript.trim()) return;
 
   const titleEl = document.getElementById("txt-voice-title");
@@ -964,7 +1189,7 @@ async function processVoiceTranscript(transcript) {
   if (msgEl) msgEl.innerText = `"${transcript}"`;
   if (typedInput) typedInput.value = transcript;
 
-  // Gather current form data for conflict detection
+  // Gather current form data for conflict detection and field retention
   const currentData = {
     name: document.getElementById("input-farmer-name") ? document.getElementById("input-farmer-name").value.trim() : "",
     farmer_name: document.getElementById("input-farmer-name") ? document.getElementById("input-farmer-name").value.trim() : "",
@@ -991,7 +1216,8 @@ async function processVoiceTranscript(transcript) {
       body: JSON.stringify({
         transcript: transcript,
         lang_code: currentLang || "hi",
-        current_data: currentData
+        current_data: currentData,
+        target_field: targetMissingField || currentFollowupField || null
       })
     });
     if (resp.ok) {
@@ -1002,7 +1228,7 @@ async function processVoiceTranscript(transcript) {
   }
 
   if (!parseResult) {
-    parseResult = clientSideVoiceParser(transcript, currentData);
+    parseResult = clientSideVoiceParser(transcript, currentData, targetMissingField || currentFollowupField);
   }
 
   applyVoiceParsingResult(parseResult, transcript);
@@ -1016,6 +1242,10 @@ function applyVoiceParsingResult(data, transcript) {
   const conflictList = document.getElementById("voice-conflict-list");
   const statusAlert = document.getElementById("voice-status-alert");
   const statusText = document.getElementById("voice-status-text");
+  const confirmCard = document.getElementById("voice-confirmation-card");
+  const summaryTextEl = document.getElementById("voice-summary-text");
+  const followupCard = document.getElementById("voice-followup-card");
+  const followupQuestionEl = document.getElementById("txt-followup-question");
 
   // Only present conflict if user had manually entered a value that conflicts
   const realConflicts = {};
@@ -1039,7 +1269,7 @@ function applyVoiceParsingResult(data, transcript) {
     if (conflictBanner) conflictBanner.style.display = "none";
   }
 
-  // Populate non-conflicting extracted fields
+  // Populate non-conflicting extracted fields directly into the visible form
   const updatedLabels = [];
   for (const [k, v] of Object.entries(extracted)) {
     if (!realConflicts[k]) {
@@ -1050,9 +1280,51 @@ function applyVoiceParsingResult(data, transcript) {
     }
   }
 
+  // Update Confirmation Summary Card (Farmer Review)
+  let summary = data.confirmation_summary || "";
+  if (!summary) {
+    const summaryParts = [];
+    const nameVal = extracted.name || extracted.farmer_name;
+    if (nameVal) summaryParts.push(`Name: ${nameVal}`);
+    if (extracted.phone) summaryParts.push(`Phone: ${extracted.phone}`);
+    if (extracted.crop) summaryParts.push(`Crop: ${extracted.crop}`);
+    if (extracted.acres) summaryParts.push(`Land: ${extracted.acres} Acre${extracted.acres > 1 ? 's' : ''}`);
+    if (extracted.village) summaryParts.push(`Village: ${extracted.village}`);
+    if (extracted.district) summaryParts.push(`District: ${extracted.district}`);
+    if (extracted.yield || extracted.yield_quintals || extracted.projected_yield) {
+      summaryParts.push(`Yield: ${extracted.yield || extracted.yield_quintals || extracted.projected_yield} Qtl/Ac`);
+    }
+    if (extracted.costs || extracted.input_costs) {
+      summaryParts.push(`Expenses: ₹${Number(extracted.costs || extracted.input_costs).toLocaleString('en-IN')}`);
+    }
+    summary = summaryParts.join(" • ");
+  }
+
+  if (summary && summaryTextEl && confirmCard) {
+    summaryTextEl.innerText = summary;
+    confirmCard.style.display = "block";
+    lastSummarySpokenText = summary;
+  }
+
+  // Handle single follow-up question if any required fields are missing
+  if (data.followup_question && data.followup_question.question && followupCard && followupQuestionEl) {
+    currentFollowupField = data.followup_question.field;
+    followupQuestionEl.innerText = data.followup_question.question;
+    followupCard.style.display = "block";
+    // Speak the single targeted follow-up question aloud
+    speakUtterance(data.followup_question.question, currentLang);
+  } else {
+    currentFollowupField = null;
+    if (followupCard) followupCard.style.display = "none";
+    // When all required fields are complete, speak the confirmation summary aloud
+    if (summary) {
+      speakUtterance(summary, currentLang);
+    }
+  }
+
   // Display status banner for farmer review (DO NOT auto-submit or auto-calculate!)
   if (updatedLabels.length > 0 && statusAlert && statusText) {
-    statusText.innerText = `🎙️ ${updatedLabels.length} field(s) populated from voice: [${updatedLabels.join(", ")}]. Please review your inputs and click 'Calculate Transparent Credit Sizing' to submit.`;
+    statusText.innerText = `🎙️ ${updatedLabels.length} field(s) populated from voice: [${updatedLabels.join(", ")}]. Please review your inputs and click 'Confirm & Continue' or 'Calculate Transparent Credit Sizing' to submit.`;
     statusAlert.style.display = "block";
   }
 }
