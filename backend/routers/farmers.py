@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 import logging
 
 from backend.database import get_db
-from backend.models import Farmer, CreditAssessment
+from backend.models import Farmer, CreditAssessment, FarmerStatus
 from backend.schemas import (
     FarmerCreate,
     FarmerUpdate,
@@ -19,30 +19,44 @@ logger = logging.getLogger(__name__)
 
 @router.post("/", response_model=FarmerResponse, status_code=status.HTTP_201_CREATED)
 async def create_farmer(farmer: FarmerCreate, db: Session = Depends(get_db)):
-    """Create a new farmer"""
+    """Create a new farmer or return existing if phone matches"""
     try:
         # Check if phone already exists
         existing_farmer = db.query(Farmer).filter(Farmer.phone == farmer.phone).first()
         if existing_farmer:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Farmer with this phone number already exists"
-            )
+            # If farmer exists, update fields and return
+            existing_farmer.name = farmer.name
+            existing_farmer.land_size_acres = farmer.get_land_size()
+            if farmer.village:
+                existing_farmer.village = farmer.village
+            if farmer.district:
+                existing_farmer.district = farmer.district
+            if farmer.state:
+                existing_farmer.state = farmer.state
+            db.commit()
+            db.refresh(existing_farmer)
+            return existing_farmer
         
-        db_farmer = Farmer(**farmer.model_dump())
+        db_farmer = Farmer(
+            name=farmer.name,
+            phone=farmer.phone,
+            village=farmer.village or "Pimpalgaon",
+            district=farmer.district or "Nashik",
+            state=farmer.state or "Maharashtra",
+            land_size_acres=farmer.get_land_size(),
+            status=FarmerStatus.ACTIVE
+        )
         db.add(db_farmer)
         db.commit()
         db.refresh(db_farmer)
         logger.info(f"Created farmer: {db_farmer.id}")
         return db_farmer
-    except HTTPException:
-        raise
     except Exception as e:
         logger.error(f"Error creating farmer: {str(e)}")
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to create farmer"
+            detail=f"Failed to create farmer: {str(e)}"
         )
 
 
@@ -142,7 +156,6 @@ async def delete_farmer(farmer_id: int, db: Session = Depends(get_db)):
 async def create_credit_assessment(farmer_id: int, assessment: CreditAssessmentCreate, db: Session = Depends(get_db)):
     """Create a credit assessment for a farmer"""
     try:
-        # Verify farmer exists
         farmer = db.query(Farmer).filter(Farmer.id == farmer_id).first()
         if not farmer:
             raise HTTPException(
@@ -150,7 +163,6 @@ async def create_credit_assessment(farmer_id: int, assessment: CreditAssessmentC
                 detail="Farmer not found"
             )
         
-        # Override farmer_id from path
         assessment_data = assessment.model_dump()
         assessment_data['farmer_id'] = farmer_id
         
@@ -175,7 +187,6 @@ async def create_credit_assessment(farmer_id: int, assessment: CreditAssessmentC
 async def get_farmer_assessments(farmer_id: int, db: Session = Depends(get_db)):
     """Get all credit assessments for a farmer"""
     try:
-        # Verify farmer exists
         farmer = db.query(Farmer).filter(Farmer.id == farmer_id).first()
         if not farmer:
             raise HTTPException(

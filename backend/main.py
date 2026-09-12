@@ -3,7 +3,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import logging
 
-from backend.routers import farmers
+from backend.routers import (
+    farmers,
+    underwriting,
+    fpo,
+    lenders,
+    market_data,
+    voice_intake,
+    identity
+)
 from backend.config import settings
 from backend.database import engine, Base
 
@@ -18,46 +26,62 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan events"""
-    # Startup
-    logger.info("Starting Farmer Financial Infrastructure API")
+    logger.info("Starting KisanSetu Farmer Financial Infrastructure API")
     Base.metadata.create_all(bind=engine)
-    logger.info("Database tables created")
+    logger.info("Database tables verified / created")
     yield
-    # Shutdown
     logger.info("Shutting down application")
 
 
 app = FastAPI(
-    title="Farmer Financial Infrastructure API",
-    description="API for farmer-governed financial infrastructure enabling agricultural credit assessment",
-    version="1.0.0",
+    title="KisanSetu Financial Infrastructure API",
+    description="Community-Owned Credit Network for Marginal Farmers: Deterministic Agronomic Underwriting, FPO 3-Peer Social Collateral, Harvest Bullet Repayment",
+    version="2.0.0",
     lifespan=lifespan
 )
 
 # CORS configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.ALLOWED_ORIGINS,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Include routers
-app.include_router(farmers.router, prefix="/api/v1/farmers", tags=["farmers"])
+# Register All API Routers
+app.include_router(farmers.router, prefix="/api/v1/farmers", tags=["Farmers"])
+app.include_router(underwriting.router, prefix="/api/v1/underwriting", tags=["Agronomic Underwriting"])
+app.include_router(fpo.router, prefix="/api/v1/fpo", tags=["FPO Coordinator & Peer Groups"])
+app.include_router(lenders.router, prefix="/api/v1/lenders", tags=["Rural Lender Console"])
+app.include_router(market_data.router, prefix="/api/v1/market-data", tags=["Agricultural Market Data"])
+app.include_router(voice_intake.router, prefix="/api/v1/voice", tags=["Multilingual Voice Intake"])
+app.include_router(identity.router, prefix="/api/v1/identity", tags=["Identity, DID & GDPR"])
 
 
 @app.get("/")
 async def root():
-    """Root endpoint"""
+    """Root endpoint with API capabilities overview"""
     return {
-        "message": "Farmer Financial Infrastructure API",
-        "version": "1.0.0",
-        "status": "operational"
+        "message": "KisanSetu Community-Owned Credit Network API",
+        "version": "2.0.0",
+        "status": "operational",
+        "features": {
+            "deterministic_underwriting": "Acres × Yield × Price, 0.45 × Net Profit, 0-100 Explainable Score",
+            "agri_data_integration": "AGMARKNET Mandi Modal Prices, NHB District Yields, PMFBY Records",
+            "fpo_social_collateral": "3-Member Peer Guarantee Groups & Field Crop Verification",
+            "lender_console": "Harvest Bullet Repayments & e-RUPI Voucher Disbursement",
+            "voice_intake": "10+ Regional Languages with Transcript-to-Field Mapping",
+            "portable_identity": "W3C Verifiable Credentials & GDPR Compliance"
+        },
+        "docs_url": "/docs"
     }
 
 
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
-    return {"status": "healthy"}
+    return {
+        "status": "healthy",
+        "timestamp": logging.time.strftime("%Y-%m-%dT%H:%M:%SZ", logging.time.gmtime())
+    }
