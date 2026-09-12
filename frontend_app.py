@@ -5,7 +5,24 @@ import time
 from datetime import datetime, timedelta
 import pandas as pd
 
+import importlib
+
 # Local Service fallbacks in case backend process is starting
+import backend.services.underwriting as _underwriting_mod
+import backend.services.voice_nlp as _voice_nlp_mod
+import backend.services.agri_data as _agri_data_mod
+import backend.services.identity_blockchain as _identity_mod
+import backend.services.gdpr_consent as _consent_mod
+
+try:
+    importlib.reload(_underwriting_mod)
+    importlib.reload(_voice_nlp_mod)
+    importlib.reload(_agri_data_mod)
+    importlib.reload(_identity_mod)
+    importlib.reload(_consent_mod)
+except Exception:
+    pass
+
 from backend.services.underwriting import UnderwritingService
 from backend.services.voice_nlp import VoiceNLPService, SUPPORTED_LANGUAGES
 from backend.services.agri_data import AgriDataService, AGMARKNET_MANDI_CATALOG
@@ -608,7 +625,13 @@ with tab1:
             current_data["costs"] = tot
             current_data["input_costs"] = tot
 
-        result = VoiceNLPService.parse_transcript_to_fields(cleaned, lang_code=lang, current_data=current_data, target_field=target_field)
+        try:
+            result = VoiceNLPService.parse_transcript_to_fields(cleaned, lang_code=lang, current_data=current_data, target_field=target_field)
+        except TypeError:
+            try:
+                result = VoiceNLPService.parse_transcript_to_fields(cleaned, lang_code=lang, current_data=current_data)
+            except TypeError:
+                result = VoiceNLPService.parse_transcript_to_fields(cleaned, lang_code=lang)
         st.session_state.clarifications = result.get("clarifications", [])
         st.session_state.contradictions = result.get("contradictions", [])
         st.session_state.confirmation_summary = result.get("confirmation_summary", "")
