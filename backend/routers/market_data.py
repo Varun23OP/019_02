@@ -49,5 +49,5 @@ async def check_pmfby(phone: str, crop_name: Optional[str] = None):
 @router.get("/alerts")
 async def get_market_alerts(crop_name: str = "Tomato (Horticulture)", acres: float = 2.0):
     """Fetch proactive mandi price alerts and harvest timeline reminders."""
-    bullet_date = datetime.utcnow() + timedelta(days=140)
+    bullet_date = datetime.now() + timedelta(days=140)
     return AgriDataService.generate_alerts(crop_name, acres, bullet_date)

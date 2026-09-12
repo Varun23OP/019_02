@@ -916,7 +916,7 @@ with tab3:
                 "risk_category": "Tier-1 Low Risk",
                 "social_collateral": "3/3 Verified FPO Pool",
                 "crop_verification": "VERIFIED",
-                "bullet_repayment_date": (datetime.utcnow() + timedelta(days=140)).strftime("%d-%b-%Y"),
+                "bullet_repayment_date": (datetime.now() + timedelta(days=140)).strftime("%d-%b-%Y"),
                 "status": "PENDING_REVIEW"
             },
             {
@@ -932,7 +932,7 @@ with tab3:
                 "risk_category": "Tier-1 Low Risk",
                 "social_collateral": "3/3 Verified FPO Pool",
                 "crop_verification": "VERIFIED",
-                "bullet_repayment_date": (datetime.utcnow() + timedelta(days=125)).strftime("%d-%b-%Y"),
+                "bullet_repayment_date": (datetime.now() + timedelta(days=125)).strftime("%d-%b-%Y"),
                 "status": "SANCTIONED"
             }
         ]
@@ -1001,7 +1001,7 @@ with tab3:
     mandi_crop_choice = st.selectbox("Select Crop for Mandi Trend Analysis:", list(AGMARKNET_MANDI_CATALOG.keys()))
     crop_mandi_data = AGMARKNET_MANDI_CATALOG[mandi_crop_choice]
 
-    trend_dates = [(datetime.utcnow() - timedelta(days=29 - i)).strftime("%d-%b") for i in range(30)]
+    trend_dates = [(datetime.now() - timedelta(days=29 - i)).strftime("%d-%b") for i in range(30)]
     trend_df = pd.DataFrame({
         "Date": trend_dates,
         "Modal Price (₹/qtl)": crop_mandi_data["historical_30d_prices"],

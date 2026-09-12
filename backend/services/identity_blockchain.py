@@ -50,7 +50,7 @@ class FarmerIdentityService:
         """
         farmer_did = FarmerIdentityService.generate_farmer_did(state, phone)
         issuer_did = f"did:kisan:fpo:{fpo_name.lower().replace(' ', '-')[:20]}"
-        issuance_time = datetime.utcnow().isoformat() + "Z"
+        issuance_time = datetime.now().isoformat() + "Z"
         credential_id = f"urn:uuid:{uuid.uuid4()}"
 
         # Credential Subject Claims

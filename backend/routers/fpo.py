@@ -140,8 +140,8 @@ async def record_crop_verification(
             crop_name=verification.crop_name,
             verified_acres=verification.verified_acres,
             crop_stage=verification.crop_stage,
-            sowing_date=verification.sowing_date or datetime.utcnow(),
-            expected_harvest_date=verification.expected_harvest_date or (datetime.utcnow() + timedelta(days=90)),
+            sowing_date=verification.sowing_date or datetime.now(),
+            expected_harvest_date=verification.expected_harvest_date or (datetime.now() + timedelta(days=90)),
             field_officer_name=verification.field_officer_name,
             verification_status=verification.verification_status,
             geo_lat=verification.geo_lat or 19.9975,
@@ -219,6 +219,6 @@ async def get_offline_sync_status():
         "cache_version": "v2026.09.12",
         "offline_storage_mode": "IndexedDB_SQLite_Mirror",
         "pending_offline_actions": 0,
-        "last_sync_timestamp": datetime.utcnow().isoformat() + "Z",
+        "last_sync_timestamp": datetime.now().isoformat() + "Z",
         "bandwidth_optimization": "Gzip-compressed telemetry payloads enabled"
     }

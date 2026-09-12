@@ -78,8 +78,8 @@ def seed_database():
             crop_name="Tomato (Horticulture)",
             verified_acres=2.0,
             crop_stage="Vegetative (Flowering)",
-            sowing_date=datetime.utcnow() - timedelta(days=35),
-            expected_harvest_date=datetime.utcnow() + timedelta(days=75),
+            sowing_date=datetime.now() - timedelta(days=35),
+            expected_harvest_date=datetime.now() + timedelta(days=75),
             field_officer_name="Anand Shinde (Sahyadri FPO)",
             verification_status="VERIFIED",
             geo_lat=20.1745,
@@ -146,8 +146,8 @@ def seed_database():
             crop_name="Soybean",
             verified_acres=1.5,
             crop_stage="Pod Formation",
-            sowing_date=datetime.utcnow() - timedelta(days=40),
-            expected_harvest_date=datetime.utcnow() + timedelta(days=55),
+            sowing_date=datetime.now() - timedelta(days=40),
+            expected_harvest_date=datetime.now() + timedelta(days=55),
             field_officer_name="Sunil Verma (Tapi FPO)",
             verification_status="VERIFIED",
             geo_lat=22.8456,
@@ -158,10 +158,10 @@ def seed_database():
         db.commit()
 
         # Add Credit Assessment for Geeta Devi (Already Sanctioned)
-        bullet_date_geeta = datetime.utcnow() + timedelta(days=125)
+        bullet_date_geeta = datetime.now() + timedelta(days=125)
         assessment_geeta = CreditAssessment(
             farmer_id=farmer4.id,
-            assessment_date=datetime.utcnow(),
+            assessment_date=datetime.now(),
             credit_score=82,
             loan_eligibility_amount=20817.0,
             risk_category="Tier-1 Low Risk (Preferred Agro-Credit)",

@@ -26,7 +26,7 @@ class GDPRConsentService:
         """
         Record explicit consent with timestamp and purpose-specific scopes.
         """
-        timestamp = datetime.utcnow().isoformat() + "Z"
+        timestamp = datetime.now().isoformat() + "Z"
         return {
             "farmer_id": farmer_id,
             "purposes": {
@@ -50,7 +50,7 @@ class GDPRConsentService:
             "zero_land_deed_guarantee": "No land ownership documents, title extracts, or property encumbrances collected.",
             "recorded_at": timestamp,
             "ip_address": ip_address,
-            "audit_hash": f"audit_{farmer_id}_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}"
+            "audit_hash": f"audit_{farmer_id}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
         }
 
     @staticmethod
@@ -60,7 +60,7 @@ class GDPRConsentService:
         """
         return {
             "dossier_type": "GDPR_PORTABLE_DATA_EXPORT",
-            "export_timestamp": datetime.utcnow().isoformat() + "Z",
+            "export_timestamp": datetime.now().isoformat() + "Z",
             "controller": "KisanSetu Community-Owned Credit Network",
             "farmer_profile": {
                 "id": getattr(farmer_obj, "id", None),

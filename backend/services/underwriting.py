@@ -37,7 +37,7 @@ class UnderwritingService:
         Execute full agronomic underwriting assessment.
         Guaranteed deterministic execution in < 50ms.
         """
-        start_time = datetime.utcnow()
+        start_time = datetime.now()
 
         # Enforce marginal farmer mandate
         is_marginal_farmer = acres <= 2.5
@@ -215,7 +215,7 @@ class UnderwritingService:
         # Crop duration from NHB data + 30 days marketing grace window
         crop_duration_days = nhb_info.get("duration_days", 110)
         repayment_days = crop_duration_days + 30
-        bullet_due_date = datetime.utcnow() + timedelta(days=repayment_days)
+        bullet_due_date = datetime.now() + timedelta(days=repayment_days)
 
         # Interest calculation for bullet term
         # Simple interest for crop tenure: Principal * (Rate / 365) * Days
@@ -249,7 +249,7 @@ class UnderwritingService:
             f"को एकमुश्त भुगतान देय है।"
         )
 
-        calculation_duration_ms = (datetime.utcnow() - start_time).total_seconds() * 1000.0
+        calculation_duration_ms = (datetime.now() - start_time).total_seconds() * 1000.0
 
         return {
             "farmer_name": farmer_name,

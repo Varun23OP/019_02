@@ -32,7 +32,7 @@ AGMARKNET_MANDI_CATALOG: Dict[str, Dict[str, Any]] = {
             2250, 2260, 2240, 2280, 2300, 2290, 2310, 2300, 2280, 2250,
             2240, 2230, 2260, 2270, 2280, 2260, 2250, 2270, 2260, 2250
         ],
-        "reporting_date": datetime.utcnow().strftime("%Y-%m-%d"),
+        "reporting_date": datetime.now().strftime("%Y-%m-%d"),
         "source": "AGMARKNET Daily APMC Feed (Nashik)"
     },
     "Cotton": {
@@ -49,7 +49,7 @@ AGMARKNET_MANDI_CATALOG: Dict[str, Dict[str, Any]] = {
             6780, 6800, 6820, 6810, 6830, 6820, 6840, 6850, 6840, 6860,
             6870, 6860, 6880, 6870, 6860, 6850, 6860, 6870, 6860, 6850
         ],
-        "reporting_date": datetime.utcnow().strftime("%Y-%m-%d"),
+        "reporting_date": datetime.now().strftime("%Y-%m-%d"),
         "source": "AGMARKNET Daily APMC Feed (Rajkot)"
     },
     "Soybean": {
@@ -66,7 +66,7 @@ AGMARKNET_MANDI_CATALOG: Dict[str, Dict[str, Any]] = {
             4750, 4740, 4730, 4750, 4740, 4730, 4720, 4710, 4730, 4720,
             4710, 4700, 4720, 4730, 4720, 4710, 4700, 4710, 4720, 4720
         ],
-        "reporting_date": datetime.utcnow().strftime("%Y-%m-%d"),
+        "reporting_date": datetime.now().strftime("%Y-%m-%d"),
         "source": "AGMARKNET Daily APMC Feed (Indore)"
     },
     "Wheat": {
@@ -83,7 +83,7 @@ AGMARKNET_MANDI_CATALOG: Dict[str, Dict[str, Any]] = {
             2420, 2425, 2420, 2425, 2430, 2430, 2435, 2430, 2425, 2425,
             2430, 2430, 2425, 2420, 2425, 2430, 2425, 2425, 2425, 2425
         ],
-        "reporting_date": datetime.utcnow().strftime("%Y-%m-%d"),
+        "reporting_date": datetime.now().strftime("%Y-%m-%d"),
         "source": "AGMARKNET Daily APMC Feed (Khanna)"
     },
     "Onion": {
@@ -100,7 +100,7 @@ AGMARKNET_MANDI_CATALOG: Dict[str, Dict[str, Any]] = {
             2080, 2090, 2100, 2110, 2120, 2110, 2130, 2120, 2100, 2090,
             2100, 2110, 2120, 2110, 2100, 2090, 2100, 2110, 2100, 2100
         ],
-        "reporting_date": datetime.utcnow().strftime("%Y-%m-%d"),
+        "reporting_date": datetime.now().strftime("%Y-%m-%d"),
         "source": "AGMARKNET Daily APMC Feed (Lasalgaon)"
     },
     "Maize": {
@@ -117,7 +117,7 @@ AGMARKNET_MANDI_CATALOG: Dict[str, Dict[str, Any]] = {
             2180, 2185, 2190, 2185, 2180, 2185, 2190, 2185, 2180, 2175,
             2180, 2180, 2185, 2180, 2175, 2180, 2180, 2180, 2180, 2180
         ],
-        "reporting_date": datetime.utcnow().strftime("%Y-%m-%d"),
+        "reporting_date": datetime.now().strftime("%Y-%m-%d"),
         "source": "AGMARKNET Daily APMC Feed (Davanagere)"
     }
 }
@@ -237,7 +237,7 @@ class AgriDataService:
             "primary_mandi": "Regional District APMC",
             "trend_30d_pct": +0.0,
             "historical_30d_prices": [3500] * 30,
-            "reporting_date": datetime.utcnow().strftime("%Y-%m-%d"),
+            "reporting_date": datetime.now().strftime("%Y-%m-%d"),
             "data_status": "SAMPLE_BENCHMARK",
             "source": "AGMARKNET Estimated Composite Index"
         }
@@ -306,7 +306,7 @@ class AgriDataService:
         mandi = AgriDataService.get_mandi_price(crop_name)
         price = mandi["modal_price_per_qtl"]
         trend = mandi["trend_30d_pct"]
-        days_to_harvest = max(1, (bullet_date - datetime.utcnow()).days)
+        days_to_harvest = max(1, (bullet_date - datetime.now()).days)
         
         alerts = []
         # Mandi alert
@@ -319,7 +319,7 @@ class AgriDataService:
                     f"Modal price at {mandi['primary_mandi']} is ₹{price:,.0f}/qtl "
                     f"(up {trend:+.1f}% over 30 days). Excellent window for forward contracting."
                 ),
-                "timestamp": datetime.utcnow().strftime("%Y-%m-%d %H:%M")
+                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M")
             })
         else:
             alerts.append({
@@ -330,7 +330,7 @@ class AgriDataService:
                     f"Modal price at {mandi['primary_mandi']} dipped {trend:.1f}% to ₹{price:,.0f}/qtl. "
                     "Consider utilizing FPO collective storage to avoid distress selling."
                 ),
-                "timestamp": datetime.utcnow().strftime("%Y-%m-%d %H:%M")
+                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M")
             })
 
         # Harvest timeline alert
@@ -342,7 +342,7 @@ class AgriDataService:
                 f"Bullet repayment is synchronized to harvest completion on "
                 f"{bullet_date.strftime('%d-%b-%Y')} with a 30-day post-harvest realization buffer."
             ),
-            "timestamp": datetime.utcnow().strftime("%Y-%m-%d %H:%M")
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M")
         })
 
         return alerts

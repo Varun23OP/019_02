@@ -100,7 +100,7 @@ async def submit_underwriting_application(
         # 3. Save Credit Assessment record
         db_assessment = CreditAssessment(
             farmer_id=farmer.id,
-            assessment_date=datetime.utcnow(),
+            assessment_date=datetime.now(),
             credit_score=result["credit_score"],
             loan_eligibility_amount=result["credit_limit"],
             risk_category=result["risk_category"],

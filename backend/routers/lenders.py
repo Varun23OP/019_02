@@ -127,10 +127,10 @@ async def list_lender_applications(db: Session = Depends(get_db)):
                 "social_collateral": "3/3 Verified FPO Pool",
                 "peer_group_code": "GRP-SAHYADRI-01",
                 "crop_verification": "VERIFIED",
-                "bullet_repayment_date": (datetime.utcnow() + datetime.timedelta(days=140)).strftime("%d-%b-%Y"),
+                "bullet_repayment_date": (datetime.now() + datetime.timedelta(days=140)).strftime("%d-%b-%Y"),
                 "status": "PENDING_REVIEW",
                 "lender_notes": "Agronomic cashflow confirmed with AGMARKNET daily modal price.",
-                "assessment_date": datetime.utcnow().strftime("%Y-%m-%d %H:%M")
+                "assessment_date": datetime.now().strftime("%Y-%m-%d %H:%M")
             },
             {
                 "assessment_id": 102,
@@ -153,10 +153,10 @@ async def list_lender_applications(db: Session = Depends(get_db)):
                 "social_collateral": "3/3 Verified FPO Pool",
                 "peer_group_code": "GRP-TAPI-02",
                 "crop_verification": "VERIFIED",
-                "bullet_repayment_date": (datetime.utcnow() + datetime.timedelta(days=125)).strftime("%d-%b-%Y"),
+                "bullet_repayment_date": (datetime.now() + datetime.timedelta(days=125)).strftime("%d-%b-%Y"),
                 "status": "SANCTIONED",
                 "lender_notes": "Qualified under priority sector lending guidelines.",
-                "assessment_date": datetime.utcnow().strftime("%Y-%m-%d %H:%M")
+                "assessment_date": datetime.now().strftime("%Y-%m-%d %H:%M")
             }
         ]
 
@@ -178,7 +178,7 @@ async def record_lender_decision(
             "assessment_id": assessment_id,
             "status": decision_data.decision,
             "lender_notes": decision_data.lender_notes or f"Application marked as {decision_data.decision}",
-            "updated_at": datetime.utcnow().isoformat() + "Z",
+            "updated_at": datetime.now().isoformat() + "Z",
             "message": f"Loan status successfully updated to {decision_data.decision}."
         }
 
@@ -218,7 +218,7 @@ async def disburse_loan(assessment_id: int, db: Session = Depends(get_db)):
         "disbursement_channel": "NPCI e-RUPI Purpose-Bound Agricultural Voucher",
         "disbursed_amount_inr": amount,
         "disbursement_tx_id": f"eRUPI-AGRI-{assessment_id}-2026",
-        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "timestamp": datetime.now().isoformat() + "Z",
         "message": f"₹{amount:,.0f} successfully disbursed via e-RUPI voucher for agricultural input purchases."
     }
 
