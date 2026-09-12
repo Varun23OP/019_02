@@ -15,8 +15,8 @@ A community-owned financial infrastructure that democratizes agricultural credit
    - `Safe Credit Limit = 0.45 × Net Profit` (+15% limit bonus for consistent performers with 100% peer repayment track record)
    - Explainable Credit Score on a strict 0–100 scale with itemized factor rationales.
    - Harvest-Synchronized Single Bullet Amortization (Zero monthly EMI during crop growth; due date aligned with harvest + 30-day marketing buffer).
-3. **Multilingual Voice Intake in 11 Languages**: Spoken input with live recording, vernacular voice scenarios, transcript review, and entity auto-fill across Hindi, Marathi, Gujarati, Telugu, Tamil, Kannada, Punjabi, Bengali, Odia, Assamese, and English.
-4. **FPO Coordinator Console**: 3-member peer group onboarding, mutual social collateral pledges, field crop verification logs (with GPS & stages), and early warning distress alerts.
+3. **Zero-Friction Multilingual Voice Intake in 11 Languages**: One-tap spoken input with live recording, instant Conformer STT, zero copy/paste automated field population, and vernacular confirmation summary across Hindi, Marathi, Gujarati, Telugu, Tamil, Kannada, Punjabi, Bengali, Odia, Assamese, and English.
+4. **FPO Coordinator Console**: Strict 3-member peer group onboarding, dynamic pool credit limit aggregation (no fabricated data), unassigned farmers queue with 1-click pool assignment, mutual social collateral pledges, field crop verification logs (with GPS & stages), and early warning distress alerts.
 5. **Rural Bank & NBFC Console**: Live application queue, RBI Priority Sector Lending (PSL) qualification, underwriting drill-downs, approval/rejection workflows, e-RUPI voucher disbursement, and 30-day AGMARKNET price trend charts.
 6. **Data Ownership & Cryptographic Identity**: W3C Decentralized Identifiers (DID), verifiable credit credentials with SHA-256 tamper-evident digital digests, and GDPR/DPDP consent audit trails & data dossier export.
 
@@ -102,6 +102,11 @@ python -m backend.test_api
 ### 2. Complete 9-Step Farmer End-to-End Journey & Edge Cases
 ```bash
 python test_e2e_journey.py
+```
+
+### 3. Farmer Intake to FPO Guarantee Pool Integration Test (10 Verification Checks)
+```bash
+python test_farmer_fpo_integration.py
 ```
 
 ---
@@ -251,6 +256,7 @@ The repository includes a GitHub Actions workflow (`.github/workflows/pages.yml`
 │       └── gdpr_consent.py      # GDPR compliance (consent audit, portable export, erasure)
 ├── frontend_app.py              # Streamlit multi-role reactive console (11 languages)
 ├── test_e2e_journey.py          # End-to-end 9-step verification script with edge cases
+├── test_farmer_fpo_integration.py # 10-stage farmer intake to FPO guarantee pool integration test
 ├── PRD_FEATURE_AUDIT.md         # Full PRD checklist audit matrix
 ├── SYSTEM_ARCHITECTURE_AND_SCALING.md # 10k voice calls, 99.5% uptime, 5M farmers scaling blueprint
 ├── .env.example                 # Environment variables template
