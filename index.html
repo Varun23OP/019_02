@@ -188,6 +188,10 @@
 
               <div class="form-grid-2">
                 <div class="form-group">
+                  <label for="input-farmer-village">Village / Gram Panchayat <span class="voice-badge" id="badge-voice-village" style="display:none;"><i class="fa-solid fa-microphone"></i> Voice Updated</span></label>
+                  <input type="text" id="input-farmer-village" class="form-control" value="Pimpalgaon">
+                </div>
+                <div class="form-group">
                   <label for="select-mandi-district">State & Mandi APMC Location <span class="voice-badge" id="badge-voice-district" style="display:none;"><i class="fa-solid fa-microphone"></i> Voice Updated</span></label>
                   <select id="select-mandi-district" class="form-control">
                     <option value="Maharashtra_Nashik">Maharashtra - Nashik (Pimpalgaon / Lasalgaon APMC)</option>
@@ -198,6 +202,9 @@
                     <option value="Madhya Pradesh_Indore">Madhya Pradesh - Indore (Choithram Mandi)</option>
                   </select>
                 </div>
+              </div>
+
+              <div class="form-grid-2">
                 <div class="form-group">
                   <label for="select-crop">Cultivated Crop <span class="voice-badge" id="badge-voice-crop" style="display:none;"><i class="fa-solid fa-microphone"></i> Voice Updated</span></label>
                   <select id="select-crop" class="form-control">
@@ -209,6 +216,25 @@
                     <option value="Turmeric">Turmeric (Salem Finger)</option>
                     <option value="Pomegranate">Pomegranate (Bhagwa)</option>
                     <option value="Cauliflower">Cauliflower (Snowball)</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="input-crop-yield">Expected Yield (Quintals/Acre) <span class="voice-badge" id="badge-voice-yield" style="display:none;"><i class="fa-solid fa-microphone"></i> Voice Updated</span></label>
+                  <input type="number" id="input-crop-yield" class="form-control" value="18" step="0.5" min="1" max="150">
+                </div>
+              </div>
+
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <label for="input-crop-costs">Total Input Expenses (₹) <span class="voice-badge" id="badge-voice-costs" style="display:none;"><i class="fa-solid fa-microphone"></i> Voice Updated</span></label>
+                  <input type="number" id="input-crop-costs" class="form-control" value="24000" step="500" min="500">
+                </div>
+                <div class="form-group">
+                  <label for="select-irrigation">Irrigation Facility <span class="voice-badge" id="badge-voice-irrigation" style="display:none;"><i class="fa-solid fa-microphone"></i> Voice Updated</span></label>
+                  <select id="select-irrigation" class="form-control">
+                    <option value="Drip">Micro-Drip Irrigation (+18% Yield Boost)</option>
+                    <option value="Canal">Canal / Borewell (Standard Yield Baseline)</option>
+                    <option value="Rainfed">Rainfed / Dryland (-15% Climate Buffer)</option>
                   </select>
                 </div>
               </div>
@@ -228,23 +254,13 @@
                 </div>
               </div>
 
-              <div class="form-grid-2">
-                <div class="form-group">
-                  <label for="select-irrigation">Irrigation Facility <span class="voice-badge" id="badge-voice-irrigation" style="display:none;"><i class="fa-solid fa-microphone"></i> Voice Updated</span></label>
-                  <select id="select-irrigation" class="form-control">
-                    <option value="Drip">Micro-Drip Irrigation (+18% Yield Boost)</option>
-                    <option value="Canal">Canal / Borewell (Standard Yield Baseline)</option>
-                    <option value="Rainfed">Rainfed / Dryland (-15% Climate Buffer)</option>
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label for="select-peer-count">FPO 3-Peer Guarantee Status</label>
-                  <select id="select-peer-count" class="form-control">
-                    <option value="3">3 Verified Peers Endorsed (1.08x Factor)</option>
-                    <option value="2">2 Peers Endorsed (1.00x Base Factor)</option>
-                    <option value="1">1 Peer / Standalone (0.90x Multiplier)</option>
-                  </select>
-                </div>
+              <div class="form-group">
+                <label for="select-peer-count">FPO 3-Peer Guarantee Status</label>
+                <select id="select-peer-count" class="form-control">
+                  <option value="3">3 Verified Peers Endorsed (1.08x Factor)</option>
+                  <option value="2">2 Peers Endorsed (1.00x Base Factor)</option>
+                  <option value="1">1 Peer / Standalone (0.90x Multiplier)</option>
+                </select>
               </div>
 
               <div class="checkbox-stack">

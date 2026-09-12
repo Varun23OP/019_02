@@ -525,8 +525,41 @@ with tab1:
     cur_lang_code = lang_code_map.get(lang_choice, "hi")
 
     # Session State for voice-recognized form fields and conflict tracking
-    if "recognized_data" not in st.session_state:
-        st.session_state.recognized_data = {}
+    # Session State for voice-recognized form fields and conflict tracking
+    if "ff_farmer_name" not in st.session_state:
+        st.session_state.ff_farmer_name = "Ramesh Patel"
+    if "ff_phone" not in st.session_state:
+        st.session_state.ff_phone = "9876543210"
+    if "ff_village" not in st.session_state:
+        st.session_state.ff_village = "Pimpalgaon"
+    if "ff_district" not in st.session_state:
+        st.session_state.ff_district = "Nashik"
+    if "ff_crop" not in st.session_state:
+        st.session_state.ff_crop = T["crops"][0]
+    if "ff_acres" not in st.session_state:
+        st.session_state.ff_acres = 2.0
+    if "ff_yield" not in st.session_state:
+        st.session_state.ff_yield = 18.0
+    if "ff_seeds" not in st.session_state:
+        st.session_state.ff_seeds = 6000.0
+    if "ff_fert" not in st.session_state:
+        st.session_state.ff_fert = 8000.0
+    if "ff_labour" not in st.session_state:
+        st.session_state.ff_labour = 8000.0
+    if "ff_irr" not in st.session_state:
+        st.session_state.ff_irr = 2000.0
+    if "ff_fpo" not in st.session_state:
+        st.session_state.ff_fpo = "Sahyadri Agro Producer Co."
+    if "ff_p1" not in st.session_state:
+        st.session_state.ff_p1 = "Suresh Kumar (FPO #441)"
+    if "ff_p2" not in st.session_state:
+        st.session_state.ff_p2 = "Dinesh Bhai (FPO #892)"
+    if "ff_p3" not in st.session_state:
+        st.session_state.ff_p3 = "Mahesh Solanki (FPO #103)"
+    if "ff_repeat" not in st.session_state:
+        st.session_state.ff_repeat = False
+    if "ff_manually_edited" not in st.session_state:
+        st.session_state.ff_manually_edited = set()
     if "current_transcript" not in st.session_state:
         st.session_state.current_transcript = ""
     if "voice_fields_updated" not in st.session_state:
@@ -540,40 +573,94 @@ with tab1:
     if "last_processed_audio_hash" not in st.session_state:
         st.session_state.last_processed_audio_hash = None
 
+    def mark_manual_edit(field_name: str):
+        if "ff_manually_edited" not in st.session_state:
+            st.session_state.ff_manually_edited = set()
+        st.session_state.ff_manually_edited.add(field_name)
+
     def apply_transcript(transcript_text: str, lang: str):
         if not transcript_text or not transcript_text.strip():
             return
         
-        current_data = {
-            "name": st.session_state.recognized_data.get("name", ""),
-            "village": st.session_state.recognized_data.get("village", ""),
-            "district": st.session_state.recognized_data.get("district", ""),
-            "crop": st.session_state.recognized_data.get("crop", ""),
-            "acres": st.session_state.recognized_data.get("acres"),
-            "yield_quintals": st.session_state.recognized_data.get("yield_quintals"),
-            "costs": st.session_state.recognized_data.get("costs"),
-            "phone": st.session_state.recognized_data.get("phone", ""),
-            "irrigation": st.session_state.recognized_data.get("irrigation", "")
-        }
-        current_data = {k: v for k, v in current_data.items() if v is not None and v != ""}
+        cleaned = transcript_text.strip()
+        st.session_state.current_transcript = cleaned
 
-        result = VoiceNLPService.parse_transcript_to_fields(transcript_text, lang_code=lang, current_data=current_data)
-        st.session_state.current_transcript = result["raw_transcript"]
+        # Build current_data ONLY from fields manually edited by the user to prevent false conflicts with defaults
+        current_data = {}
+        if "name" in st.session_state.ff_manually_edited:
+            current_data["name"] = st.session_state.ff_farmer_name
+            current_data["farmer_name"] = st.session_state.ff_farmer_name
+        if "phone" in st.session_state.ff_manually_edited:
+            current_data["phone"] = st.session_state.ff_phone
+        if "village" in st.session_state.ff_manually_edited:
+            current_data["village"] = st.session_state.ff_village
+        if "district" in st.session_state.ff_manually_edited:
+            current_data["district"] = st.session_state.ff_district
+        if "crop" in st.session_state.ff_manually_edited:
+            current_data["crop"] = st.session_state.ff_crop
+        if "acres" in st.session_state.ff_manually_edited:
+            current_data["acres"] = st.session_state.ff_acres
+        if "yield" in st.session_state.ff_manually_edited:
+            current_data["yield_quintals"] = st.session_state.ff_yield
+            current_data["projected_yield"] = st.session_state.ff_yield
+        if "costs" in st.session_state.ff_manually_edited:
+            tot = st.session_state.ff_seeds + st.session_state.ff_fert + st.session_state.ff_labour + st.session_state.ff_irr
+            current_data["costs"] = tot
+            current_data["input_costs"] = tot
+
+        result = VoiceNLPService.parse_transcript_to_fields(cleaned, lang_code=lang, current_data=current_data)
         st.session_state.clarifications = result.get("clarifications", [])
         st.session_state.contradictions = result.get("contradictions", [])
         
         conflicts = result.get("proposed_changes", {})
         st.session_state.pending_conflicts = conflicts
 
-        newly_updated = set()
         extracted = result.get("extracted_fields", {})
-        for field, val in extracted.items():
-            if field not in conflicts:
-                canon_key = "name" if field == "farmer_name" else ("costs" if field == "input_costs" else ("yield_quintals" if field == "projected_yield" else field))
-                st.session_state.recognized_data[canon_key] = val
-                newly_updated.add(canon_key)
         
-        st.session_state.voice_fields_updated.update(newly_updated)
+        # Populate each extracted field into form session_state if not in conflict
+        if ("name" in extracted or "farmer_name" in extracted) and "name" not in conflicts and "farmer_name" not in conflicts:
+            st.session_state.ff_farmer_name = str(extracted.get("name") or extracted.get("farmer_name"))
+            st.session_state.voice_fields_updated.add("name")
+
+        if "phone" in extracted and "phone" not in conflicts:
+            st.session_state.ff_phone = str(extracted["phone"])
+            st.session_state.voice_fields_updated.add("phone")
+
+        if "village" in extracted and "village" not in conflicts:
+            st.session_state.ff_village = str(extracted["village"])
+            st.session_state.voice_fields_updated.add("village")
+
+        if "district" in extracted and "district" not in conflicts:
+            st.session_state.ff_district = str(extracted["district"])
+            st.session_state.voice_fields_updated.add("district")
+
+        if "crop" in extracted and "crop" not in conflicts:
+            sp_crop = str(extracted["crop"])
+            for c in T["crops"]:
+                if sp_crop.lower() in c.lower() or c.lower().split()[0] in sp_crop.lower():
+                    st.session_state.ff_crop = c
+                    break
+            st.session_state.voice_fields_updated.add("crop")
+
+        if "acres" in extracted and "acres" not in conflicts:
+            ac_val = max(0.5, min(2.5, float(extracted["acres"])))
+            st.session_state.ff_acres = ac_val
+            st.session_state.voice_fields_updated.add("acres")
+
+        if ("yield_quintals" in extracted or "projected_yield" in extracted) and "yield_quintals" not in conflicts and "yield" not in conflicts:
+            y_val = max(1.0, min(80.0, float(extracted.get("yield_quintals") or extracted.get("projected_yield"))))
+            st.session_state.ff_yield = y_val
+            st.session_state.voice_fields_updated.add("yield")
+
+        if ("costs" in extracted or "input_costs" in extracted) and "costs" not in conflicts and "input_costs" not in conflicts:
+            c_val = float(extracted.get("costs") or extracted.get("input_costs"))
+            st.session_state.ff_seeds = round(c_val * 0.25, 2)
+            st.session_state.ff_fert = round(c_val * 0.35, 2)
+            st.session_state.ff_labour = round(c_val * 0.30, 2)
+            st.session_state.ff_irr = round(c_val * 0.10, 2)
+            st.session_state.voice_fields_updated.add("costs")
+
+        st.rerun()
 
     with voice_col1:
         st.write(T["voice_record_prompt"])
@@ -587,7 +674,6 @@ with tab1:
                     parsed = VoiceNLPService.transcribe_audio_bytes(audio_bytes, cur_lang_code)
                     if parsed.get("success") and parsed.get("raw_transcript"):
                         apply_transcript(parsed["raw_transcript"], cur_lang_code)
-                        st.toast("Voice successfully processed and fields populated!", icon="🎙️")
                     else:
                         err_msg = parsed.get("error", "Speech could not be understood clearly.")
                         st.warning(f"⚠️ {err_msg} You can try again or use the typed input box below.")
@@ -616,28 +702,26 @@ with tab1:
         if st.button("▶️ Load & Transcribe Vernacular Scenario", use_container_width=True):
             sample = VoiceNLPService.get_sample_utterance(selected_scenario_code)
             apply_transcript(sample["transcript"], selected_scenario_code)
-            st.toast(f"Loaded voice scenario for {sample_scenarios[selected_scenario_code]}!", icon="🔊")
-            st.rerun()
 
     # Vernacular typed speech input for fallback and verification
     st.markdown("##### ⌨️ Spoken Speech Text / Vernacular Fallback Input")
-    st.caption("You can also type or paste spoken utterances directly (e.g. *“मेरा नाम रमेश है। मैं गाँव रामपुर से हूँ। मेरे पास 2 एकड़ जमीन है और मैं टमाटर उगाता हूँ।”*):")
+    st.caption("You can also type, paste, or review spoken utterances directly (e.g. *“My name is Ramesh Patel, phone 9876543210. I am cultivating 2.0 acres of Tomato in Pimpalgaon, Nashik. Expecting 18 quintals per acre yield and total input expenses are 24000 rupees.”*):")
     typed_col1, typed_col2 = st.columns([4, 1])
     with typed_col1:
         typed_utterance = st.text_input(
             "Spoken Text Input",
-            placeholder="मेरा नाम रमेश है। मैं गाँव रामपुर से हूँ। मेरे पास 2 एकड़ जमीन है और मैं टमाटर उगाता हूँ।",
+            value=st.session_state.current_transcript,
+            placeholder="My name is Ramesh Patel, phone 9876543210. I am cultivating 2.0 acres of Tomato in Pimpalgaon, Nashik. Expecting 18 quintals per acre yield and total input expenses are 24000 rupees.",
             label_visibility="collapsed",
-            key="input_typed_speech"
+            key="input_typed_speech_box"
         )
     with typed_col2:
         if st.button("⚡ Extract & Fill Fields", key="btn_parse_typed_speech", use_container_width=True):
-            if typed_utterance and typed_utterance.strip():
-                apply_transcript(typed_utterance.strip(), cur_lang_code)
-                st.toast("Fields extracted and populated from text!", icon="✨")
-                st.rerun()
+            user_text = typed_utterance or st.session_state.current_transcript
+            if user_text and user_text.strip():
+                apply_transcript(user_text.strip(), cur_lang_code)
             else:
-                st.warning("Please enter a spoken sentence first.")
+                st.warning("Please enter or record a spoken sentence first.")
 
     # Transcript Review Box
     if st.session_state.current_transcript:
@@ -656,7 +740,7 @@ with tab1:
 
     # Conflict Resolution Banner
     if st.session_state.pending_conflicts:
-        st.warning("⚠️ **Review Proposed Voice Changes:** The spoken input conflicts with previously entered values.")
+        st.warning("⚠️ **Review Proposed Voice Changes:** The spoken input conflicts with values you manually entered.")
         for field, conf in st.session_state.pending_conflicts.items():
             f_display = field.replace('_', ' ').title()
             st.markdown(f"- **{f_display}**: Current Value: `{conf['current']}` ➔ Spoken Voice Value: `{conf['spoken']}`")
@@ -665,9 +749,45 @@ with tab1:
         with c_btn1:
             if st.button("✅ Accept Spoken Changes", key="btn_accept_conflicts", use_container_width=True):
                 for field, conf in st.session_state.pending_conflicts.items():
-                    canon_key = "name" if field == "farmer_name" else ("costs" if field == "input_costs" else ("yield_quintals" if field == "projected_yield" else field))
-                    st.session_state.recognized_data[canon_key] = conf["spoken"]
-                    st.session_state.voice_fields_updated.add(canon_key)
+                    if field in ["farmer_name", "name"]:
+                        st.session_state.ff_farmer_name = str(conf["spoken"])
+                        st.session_state.ff_manually_edited.discard("name")
+                        st.session_state.voice_fields_updated.add("name")
+                    elif field == "phone":
+                        st.session_state.ff_phone = str(conf["spoken"])
+                        st.session_state.ff_manually_edited.discard("phone")
+                        st.session_state.voice_fields_updated.add("phone")
+                    elif field == "village":
+                        st.session_state.ff_village = str(conf["spoken"])
+                        st.session_state.ff_manually_edited.discard("village")
+                        st.session_state.voice_fields_updated.add("village")
+                    elif field == "district":
+                        st.session_state.ff_district = str(conf["spoken"])
+                        st.session_state.ff_manually_edited.discard("district")
+                        st.session_state.voice_fields_updated.add("district")
+                    elif field == "crop":
+                        for c in T["crops"]:
+                            if str(conf["spoken"]).lower() in c.lower():
+                                st.session_state.ff_crop = c
+                                break
+                        st.session_state.ff_manually_edited.discard("crop")
+                        st.session_state.voice_fields_updated.add("crop")
+                    elif field == "acres":
+                        st.session_state.ff_acres = max(0.5, min(2.5, float(conf["spoken"])))
+                        st.session_state.ff_manually_edited.discard("acres")
+                        st.session_state.voice_fields_updated.add("acres")
+                    elif field in ["yield", "yield_quintals", "projected_yield"]:
+                        st.session_state.ff_yield = max(1.0, min(80.0, float(conf["spoken"])))
+                        st.session_state.ff_manually_edited.discard("yield")
+                        st.session_state.voice_fields_updated.add("yield")
+                    elif field in ["costs", "input_costs"]:
+                        c_val = float(conf["spoken"])
+                        st.session_state.ff_seeds = round(c_val * 0.25, 2)
+                        st.session_state.ff_fert = round(c_val * 0.35, 2)
+                        st.session_state.ff_labour = round(c_val * 0.30, 2)
+                        st.session_state.ff_irr = round(c_val * 0.10, 2)
+                        st.session_state.ff_manually_edited.discard("costs")
+                        st.session_state.voice_fields_updated.add("costs")
                 st.session_state.pending_conflicts = {}
                 st.rerun()
         with c_btn2:
@@ -680,63 +800,66 @@ with tab1:
     st.markdown("### 📝 Review & Correct Crop Information Before Assessment")
     st.caption("Fields automatically mapped from voice transcription. Modify any value as needed before final submission.")
 
-    if st.session_state.voice_fields_updated:
-        updated_names = [f.replace('_', ' ').title() for f in sorted(st.session_state.voice_fields_updated)]
+    v_updated = st.session_state.voice_fields_updated
+    if v_updated:
+        updated_names = [f.replace('_', ' ').title() for f in sorted(v_updated)]
         st.success(f"🎙️ **Fields populated from voice input:** {', '.join(updated_names)}. Review values below and click Submit when ready.")
 
-    data = st.session_state.recognized_data
-    v_updated = st.session_state.voice_fields_updated
+    # Missing fields indicator (PRD: Leave unmentioned fields unchanged and indicate which details still need to be provided)
+    req_labels = {
+        "name": "Farmer Name",
+        "phone": "Phone Number",
+        "village": "Village",
+        "district": "District",
+        "crop": "Crop",
+        "acres": "Land Area (Acres)",
+        "yield": "Expected Yield",
+        "costs": "Cultivation Costs"
+    }
+    if st.session_state.current_transcript:
+        missing_items = [lbl for k, lbl in req_labels.items() if k not in v_updated]
+        if missing_items:
+            st.info(f"ℹ️ **Details still needed (not mentioned in speech):** {', '.join(missing_items)}. You can speak them, type into the form below, or enter another voice note.")
 
     col_f1, col_f2 = st.columns(2)
     with col_f1:
         lbl_name = f"{T['name_label']} 🎙️ [Voice Updated]" if "name" in v_updated else T["name_label"]
-        farmer_name = st.text_input(lbl_name, value=data.get("name", "Ramesh Patel"))
+        farmer_name = st.text_input(lbl_name, key="ff_farmer_name", on_change=mark_manual_edit, args=("name",))
 
         lbl_phone = f"{T['phone_label']} 🎙️ [Voice Updated]" if "phone" in v_updated else T["phone_label"]
-        phone = st.text_input(lbl_phone, value=data.get("phone", "9876543210"))
+        phone = st.text_input(lbl_phone, key="ff_phone", on_change=mark_manual_edit, args=("phone",))
 
         lbl_village = f"{T['village_label']} 🎙️ [Voice Updated]" if "village" in v_updated else T["village_label"]
-        village = st.text_input(lbl_village, value=data.get("village", "Pimpalgaon"))
+        village = st.text_input(lbl_village, key="ff_village", on_change=mark_manual_edit, args=("village",))
 
         lbl_district = f"{T['district_label']} 🎙️ [Voice Updated]" if "district" in v_updated else T["district_label"]
-        district = st.text_input(lbl_district, value=data.get("district", "Nashik"))
+        district = st.text_input(lbl_district, key="ff_district", on_change=mark_manual_edit, args=("district",))
 
-        crop_default_idx = 0
-        spoken_crop = data.get("crop", "")
-        if spoken_crop:
-            for i, c in enumerate(T["crops"]):
-                if spoken_crop.lower() in c.lower() or c.lower().split()[0] in spoken_crop.lower():
-                    crop_default_idx = i
-                    break
+        crop_idx = T["crops"].index(st.session_state.ff_crop) if st.session_state.ff_crop in T["crops"] else 0
         lbl_crop = f"{T['crop_label']} 🎙️ [Voice Updated]" if "crop" in v_updated else T["crop_label"]
-        crop = st.selectbox(lbl_crop, T["crops"], index=crop_default_idx)
+        crop = st.selectbox(lbl_crop, T["crops"], index=crop_idx, key="ff_crop", on_change=mark_manual_edit, args=("crop",))
 
         lbl_acres = f"{T['acres_label']} 🎙️ [Voice Updated]" if "acres" in v_updated else T["acres_label"]
-        acres_val = float(data.get("acres", 2.0))
-        acres_val = max(0.5, min(2.5, acres_val))
-        acres = st.number_input(lbl_acres, min_value=0.5, max_value=2.5, value=acres_val, step=0.1)
+        acres = st.number_input(lbl_acres, min_value=0.5, max_value=2.5, step=0.1, key="ff_acres", on_change=mark_manual_edit, args=("acres",))
 
     with col_f2:
-        lbl_yield = f"{T['yield_label']} 🎙️ [Voice Updated]" if "yield_quintals" in v_updated else T["yield_label"]
-        yield_val = float(data.get("yield_quintals", data.get("projected_yield", 18.0)))
-        yield_val = max(1.0, min(80.0, yield_val))
-        projected_yield = st.number_input(lbl_yield, min_value=1.0, max_value=80.0, value=yield_val, step=0.5)
+        lbl_yield = f"{T['yield_label']} 🎙️ [Voice Updated]" if "yield" in v_updated else T["yield_label"]
+        projected_yield = st.number_input(lbl_yield, min_value=1.0, max_value=80.0, step=0.5, key="ff_yield", on_change=mark_manual_edit, args=("yield",))
         
         # Itemized Costs
-        costs_total = float(data.get("costs", data.get("input_costs", 24000.0)))
         lbl_seeds = f"{T['seeds_cost_label']} 🎙️ [Voice Updated]" if "costs" in v_updated else T["seeds_cost_label"]
-        c_seeds = st.number_input(lbl_seeds, min_value=500.0, max_value=50000.0, value=costs_total * 0.25, step=500.0)
-        c_fert = st.number_input(T["fert_cost_label"], min_value=500.0, max_value=50000.0, value=costs_total * 0.35, step=500.0)
-        c_labour = st.number_input(T["labour_cost_label"], min_value=500.0, max_value=50000.0, value=costs_total * 0.30, step=500.0)
-        c_irr = st.number_input(T["irr_cost_label"], min_value=500.0, max_value=50000.0, value=costs_total * 0.10, step=500.0)
+        c_seeds = st.number_input(lbl_seeds, min_value=500.0, max_value=50000.0, step=500.0, key="ff_seeds", on_change=mark_manual_edit, args=("costs",))
+        c_fert = st.number_input(T["fert_cost_label"], min_value=500.0, max_value=50000.0, step=500.0, key="ff_fert", on_change=mark_manual_edit, args=("costs",))
+        c_labour = st.number_input(T["labour_cost_label"], min_value=500.0, max_value=50000.0, step=500.0, key="ff_labour", on_change=mark_manual_edit, args=("costs",))
+        c_irr = st.number_input(T["irr_cost_label"], min_value=500.0, max_value=50000.0, step=500.0, key="ff_irr", on_change=mark_manual_edit, args=("costs",))
 
-        fpo_group = st.selectbox(T["fpo_label"], ["Sahyadri Agro Producer Co.", "Tapi Valley Organic FPO", "Kisan Vikas Collective"])
-        p1 = st.text_input(T["p1_label"], value=data.get("p1", "Suresh Kumar (FPO #441)"))
-        p2 = st.text_input(T["p2_label"], value=data.get("p2", "Dinesh Bhai (FPO #892)"))
-        p3 = st.text_input(T["p3_label"], value=data.get("p3", "Mahesh Solanki (FPO #103)"))
+        fpo_group = st.selectbox(T["fpo_label"], ["Sahyadri Agro Producer Co.", "Tapi Valley Organic FPO", "Kisan Vikas Collective"], key="ff_fpo")
+        p1 = st.text_input(T["p1_label"], key="ff_p1")
+        p2 = st.text_input(T["p2_label"], key="ff_p2")
+        p3 = st.text_input(T["p3_label"], key="ff_p3")
 
     # Consistent performer checkbox
-    is_repeat = st.checkbox("🌟 Consistent Performer (Flawless previous season bullet repayment record (+15% limit bonus))", value=False)
+    is_repeat = st.checkbox("🌟 Consistent Performer (Flawless previous season bullet repayment record (+15% limit bonus))", key="ff_repeat")
 
     # 3. GDPR & Data Ownership Consents
     st.markdown("##### 🔒 Farmer Data Ownership & GDPR Consent Verification")

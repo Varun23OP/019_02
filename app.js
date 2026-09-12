@@ -252,8 +252,11 @@ function initFarmerForm() {
   });
 
   const triggerElements = [
+    "input-farmer-village",
     "select-mandi-district",
     "select-crop",
+    "input-crop-yield",
+    "input-crop-costs",
     "select-irrigation",
     "select-peer-count",
     "chk-pmkisan-verify",
@@ -262,7 +265,10 @@ function initFarmerForm() {
 
   triggerElements.forEach(id => {
     const el = document.getElementById(id);
-    if (el) el.addEventListener("change", calculateCreditProfile);
+    if (el) {
+      el.addEventListener("change", calculateCreditProfile);
+      if (el.tagName === "INPUT") el.addEventListener("input", calculateCreditProfile);
+    }
   });
 
   document.getElementById("btn-calc-credit").addEventListener("click", calculateCreditProfile);
@@ -303,9 +309,14 @@ function calculateCreditProfile() {
   if (irrigation === "Drip") irrigationMultiplier = nhbRecord.drip_boost || 1.18;
   else if (irrigation === "Rainfed") irrigationMultiplier = 0.85;
 
-  const yieldPerAcre = Math.round(nhbRecord.avg_yield * irrigationMultiplier * 10) / 10;
+  const yieldInputEl = document.getElementById("input-crop-yield");
+  const costsInputEl = document.getElementById("input-crop-costs");
+  const customYield = yieldInputEl && parseFloat(yieldInputEl.value) > 0 ? parseFloat(yieldInputEl.value) : null;
+  const customCosts = costsInputEl && parseFloat(costsInputEl.value) > 0 ? parseFloat(costsInputEl.value) : null;
+
+  const yieldPerAcre = customYield !== null ? customYield : (Math.round(nhbRecord.avg_yield * irrigationMultiplier * 10) / 10);
   const totalExpectedYield = Math.round(acres * yieldPerAcre * 10) / 10;
-  const cultivationCost = Math.round(acres * nhbRecord.cost_acre);
+  const cultivationCost = customCosts !== null ? Math.round(customCosts) : Math.round(acres * nhbRecord.cost_acre);
 
   // 2. AGMARKNET Modal Price
   const mandiRecord = DEFAULT_AGMARKNET.find(m => m.commodity.toLowerCase().includes(crop.toLowerCase()) && m.district === district) ||
@@ -509,9 +520,12 @@ function initVoiceSimulator() {
   const trackableFieldIds = [
     "input-farmer-name",
     "input-farmer-phone",
+    "input-farmer-village",
     "select-mandi-district",
     "select-crop",
     "slider-land-acres",
+    "input-crop-yield",
+    "input-crop-costs",
     "select-irrigation"
   ];
   trackableFieldIds.forEach(id => {
@@ -596,12 +610,17 @@ function getFieldElementId(key) {
   const map = {
     name: "input-farmer-name",
     farmer_name: "input-farmer-name",
+    phone: "input-farmer-phone",
+    village: "input-farmer-village",
+    district: "select-mandi-district",
     crop: "select-crop",
     acres: "slider-land-acres",
-    district: "select-mandi-district",
-    village: "select-mandi-district",
-    irrigation: "select-irrigation",
-    phone: "input-farmer-phone"
+    yield: "input-crop-yield",
+    yield_quintals: "input-crop-yield",
+    projected_yield: "input-crop-yield",
+    costs: "input-crop-costs",
+    input_costs: "input-crop-costs",
+    irrigation: "select-irrigation"
   };
   return map[key] || null;
 }
@@ -610,12 +629,17 @@ function formatFieldLabel(key) {
   const map = {
     name: "Farmer Name",
     farmer_name: "Farmer Name",
+    phone: "Mobile Number",
+    village: "Village",
+    district: "State & APMC District",
     crop: "Cultivated Crop",
     acres: "Land Acreage",
-    district: "State & District",
-    village: "Village",
-    irrigation: "Irrigation Facility",
-    phone: "Mobile Number"
+    yield: "Expected Yield (Qtl/Ac)",
+    yield_quintals: "Expected Yield (Qtl/Ac)",
+    projected_yield: "Expected Yield (Qtl/Ac)",
+    costs: "Input Expenses (₹)",
+    input_costs: "Input Expenses (₹)",
+    irrigation: "Irrigation Facility"
   };
   return map[key] || key;
 }
@@ -640,6 +664,20 @@ function setFormFieldValue(key, val) {
     if (el) {
       el.value = val;
       highlightField(el, "badge-voice-name");
+      return true;
+    }
+  } else if (key === "phone") {
+    const el = document.getElementById("input-farmer-phone");
+    if (el) {
+      el.value = val;
+      highlightField(el, "badge-voice-phone");
+      return true;
+    }
+  } else if (key === "village") {
+    const el = document.getElementById("input-farmer-village");
+    if (el) {
+      el.value = val;
+      highlightField(el, "badge-voice-village");
       return true;
     }
   } else if (key === "crop") {
@@ -671,7 +709,23 @@ function setFormFieldValue(key, val) {
       highlightField(el, "badge-voice-acres");
       return true;
     }
-  } else if (key === "district" || key === "village") {
+  } else if (key === "yield" || key === "yield_quintals" || key === "projected_yield") {
+    const el = document.getElementById("input-crop-yield");
+    const num = parseFloat(val);
+    if (el && !isNaN(num)) {
+      el.value = num;
+      highlightField(el, "badge-voice-yield");
+      return true;
+    }
+  } else if (key === "costs" || key === "input_costs") {
+    const el = document.getElementById("input-crop-costs");
+    const num = parseFloat(val);
+    if (el && !isNaN(num)) {
+      el.value = num;
+      highlightField(el, "badge-voice-costs");
+      return true;
+    }
+  } else if (key === "district") {
     const el = document.getElementById("select-mandi-district");
     if (el) {
       const lower = val.toString().toLowerCase();
@@ -696,27 +750,58 @@ function setFormFieldValue(key, val) {
       highlightField(el, "badge-voice-irrigation");
       return true;
     }
-  } else if (key === "phone") {
-    const el = document.getElementById("input-farmer-phone");
-    if (el) {
-      el.value = val;
-      highlightField(el, "badge-voice-phone");
-      return true;
-    }
   }
   return false;
+}
+
+function normalizeSpokenNumbersInText(text) {
+  let res = text;
+  // Multi-word thousands in Hindi and English
+  res = res.replace(/(?:चौबीस|24)\s*(?:हज़ार|हजार|thousand)/gi, "24000");
+  res = res.replace(/(?:अठारह|18)\s*(?:हज़ार|हजार|thousand)/gi, "18000");
+  res = res.replace(/(?:बीस|20)\s*(?:हज़ार|हजार|thousand)/gi, "20000");
+  res = res.replace(/(?:पच्चीस|25)\s*(?:हज़ार|हजार|thousand)/gi, "25000");
+  res = res.replace(/(?:तीस|30)\s*(?:हज़ार|हजार|thousand)/gi, "30000");
+  res = res.replace(/(?:चालीस|40)\s*(?:हज़ार|हजार|thousand)/gi, "40000");
+  res = res.replace(/(?:पचास|50)\s*(?:हज़ार|हजार|thousand)/gi, "50000");
+  res = res.replace(/(?:एक|1)\s*(?:लाख|lakh)/gi, "100000");
+  res = res.replace(/(?:दो|2)\s*(?:लाख|lakh)/gi, "200000");
+  res = res.replace(/twenty\s*four\s*thousand/gi, "24000");
+  res = res.replace(/eighteen\s*thousand/gi, "18000");
+  res = res.replace(/twenty\s*thousand/gi, "20000");
+  res = res.replace(/twenty\s*five\s*thousand/gi, "25000");
+  res = res.replace(/thirty\s*thousand/gi, "30000");
+  res = res.replace(/forty\s*thousand/gi, "40000");
+  res = res.replace(/fifty\s*thousand/gi, "50000");
+
+  // Single number words before units
+  res = res.replace(/(?:दो|two)\s+(?=एकड़|acres?)/gi, "2 ");
+  res = res.replace(/(?:एक|one)\s+(?=एकड़|acres?)/gi, "1 ");
+  res = res.replace(/(?:तीन|three)\s+(?=एकड़|acres?)/gi, "3 ");
+  res = res.replace(/(?:डेढ़|dedh|one\s+and\s+a\s+half)\s+(?=एकड़|acres?)/gi, "1.5 ");
+  res = res.replace(/(?:ढाई|dhai|two\s+and\s+a\s+half)\s+(?=एकड़|acres?)/gi, "2.5 ");
+  res = res.replace(/(?:आधा|half)\s+(?=एकड़|acres?)/gi, "0.5 ");
+
+  res = res.replace(/(?:अठारह|eighteen)\s+(?=क्विंटल|quintals?|qtl)/gi, "18 ");
+  res = res.replace(/(?:बीस|twenty)\s+(?=क्विंटल|quintals?|qtl)/gi, "20 ");
+  res = res.replace(/(?:पंद्रह|fifteen)\s+(?=क्विंटल|quintals?|qtl)/gi, "15 ");
+  res = res.replace(/(?:दस|ten)\s+(?=क्विंटल|quintals?|qtl)/gi, "10 ");
+  res = res.replace(/(?:बारह|twelve)\s+(?=क्विंटल|quintals?|qtl)/gi, "12 ");
+
+  return res;
 }
 
 // Client-side fallback NLP parser for offline / direct browser use
 function clientSideVoiceParser(text, currentData) {
   // Normalize Indic digits across 8 regional scripts
-  const norm = text.replace(/[\u0660-\u0669\u06F0-\u06F9\u0966-\u096F\u09E6-\u09EF\u0A66-\u0A6F\u0AE6-\u0AEF\u0B66-\u0B6F\u0BE6-\u0BEF\u0C66-\u0C6F\u0CE6-\u0CEF]/g, d => d.charCodeAt(0) & 0xf);
+  let norm = text.replace(/[\u0660-\u0669\u06F0-\u06F9\u0966-\u096F\u09E6-\u09EF\u0A66-\u0A6F\u0AE6-\u0AEF\u0B66-\u0B6F\u0BE6-\u0BEF\u0C66-\u0C6F\u0CE6-\u0CEF]/g, d => d.charCodeAt(0) & 0xf);
+  norm = normalizeSpokenNumbersInText(norm);
   const lower = norm.toLowerCase();
   const extracted = {};
 
   // Farmer Name
   const namePatterns = [
-    /(?:mera\s+naam|मेरा\s+नाम|माझे\s+नाव|મારું\s+નામ|నా\s+పేరు|என்\s+பெயர்|my\s+name\s+is)\s+([A-Za-z\u0900-\u0D7F\s\.]+?)(?:है|हूँ|आहे|છે|\.|,|।|मेरे|गाँव|गाव|village|district|acres|जमीन|$)/i
+    /(?:mera\s+naam|मेरा\s+नाम|माझे\s+नाव|મારું\s+નામ|నా\s+పేరు|என்\s+பெயர்|my\s+name\s+is)\s+([A-Za-z\u0900-\u0D7F\s\.]+?)(?:है|हूँ|आहे|છે|\.|,|।|मेरे|गाँव|गाव|village|district|acres|जमीन|phone|मोबाइल|$)/i
   ];
   for (const p of namePatterns) {
     const m = norm.match(p);
@@ -727,16 +812,24 @@ function clientSideVoiceParser(text, currentData) {
     }
   }
 
+  // Phone Number (10 digits starting with 6-9)
+  const phoneMatch = norm.match(/(?:phone|mobile|नंबर|मोबाईल|నంబర్)?\s*[:\s]?([6-9]\d{9})\b/i);
+  if (phoneMatch) {
+    extracted.phone = phoneMatch[1];
+  }
+
   // Village
   const villagePatterns = [
     /(?:गाँव|गांव|गाव|गावात|ग्राम|village|gaon)\s+([A-Za-z\u0900-\u0D7F]+)/i,
-    /([A-Za-z\u0900-\u0D7F]+)\s*(?:गाँव से|गांव से|गावातून|village)/i
+    /([A-Za-z\u0900-\u0D7F]+)\s*(?:गाँव से|गांव से|गावातून|village)/i,
+    /(?:in|at)\s+([A-Za-z]+),\s*(?:[A-Za-z]+)/i,
+    /(?:from|at)\s+([A-Za-z]+)\s+village/i
   ];
   for (const vp of villagePatterns) {
     const m = norm.match(vp);
     if (m && m[1].trim().length >= 2) {
       const v = m[1].trim();
-      if (!["se", "mein", "hai"].includes(v.toLowerCase())) {
+      if (!["se", "mein", "hai", "district", "acres", "acre", "land", "cultivating", "growing"].includes(v.toLowerCase())) {
         extracted.village = v;
         break;
       }
@@ -748,7 +841,7 @@ function clientSideVoiceParser(text, currentData) {
     { name: "Tomato", matches: ["tomato", "tamatar", "टमाटर", "ટામેટા", "टोमॅटो", "టమాటా", "தக்காளி"] },
     { name: "Onion", matches: ["onion", "pyaz", "kanda", "कांदा", "ડુંગળી", "ఉల్లిపాయ", "வெங்காயம்"] },
     { name: "Chilli (Dry)", matches: ["chilli", "mirchi", "chili", "मिर्च", "મરચાં", "మిర్చి", "மிளகாய்"] },
-    { name: "Potato", matches: ["potato", "aloo", "बटाटा", "आलू", "બટાકા", "బంగాళాదుంప", "உருளைக்கிழங்கு"] },
+    { name: "Potato", matches: ["potato", "aloo", "बटाटा", "आलू", "બટાકા", "బంగాళाదుంప", "உருளைக்கிழங்கு"] },
     { name: "Grapes", matches: ["grapes", "angoor", "द्राक्ष", "દ્રાક્ષ", "திராட்சை"] },
     { name: "Turmeric", matches: ["turmeric", "haldi", "हळद", "હળદર", "மஞ்சள்"] },
     { name: "Wheat", matches: ["wheat", "gehun", "गेहूं", "ਕਣਕ"] },
@@ -784,6 +877,28 @@ function clientSideVoiceParser(text, currentData) {
     extracted.acres = acreFound;
   }
 
+  // Yield detection (e.g. Expecting 18 quintals per acre yield)
+  const yieldMatch = norm.match(/(?:expecting|yield|उपज|उत्पादन|पैदावार)\s*(?:is|of|are)?\s*(\d+(?:\.\d+)?)\s*(?:quintals?|qtl|क्विंटल)?/i) ||
+                     norm.match(/(\d+(?:\.\d+)?)\s*(?:quintals?|qtl|क्विंटल)\s*(?:per\s+acre\s+yield|प्रति\s+एकड़|उपज|yield)/i);
+  if (yieldMatch) {
+    const yVal = parseFloat(yieldMatch[1]);
+    extracted.yield_quintals = yVal;
+    extracted.yield = yVal;
+    extracted.projected_yield = yVal;
+  }
+
+  // Costs / Input Expenses detection (e.g. total input expenses are 24000 rupees)
+  const costMatch = norm.match(/(?:expenses?|costs?|खर्च|लागत|खर्चा)\s*(?:are|is|of)?\s*(?:rupees?|rs\.?|₹)?\s*(\d+)/i) ||
+                    norm.match(/(\d+)\s*(?:rupees|रुपये|रु)\s*(?:total\s+input\s+expenses?|expenses?|costs?|खर्च|लागत)/i) ||
+                    norm.match(/(\d+)\s*(?:रुपये|rupees)/i);
+  if (costMatch) {
+    const cVal = parseFloat(costMatch[1]);
+    if (cVal >= 500) {
+      extracted.input_costs = cVal;
+      extracted.costs = cVal;
+    }
+  }
+
   // District detection
   if (lower.includes("kolar") || lower.includes("कोलार") || lower.includes("ಕೋಲಾರ")) {
     extracted.district = "Karnataka_Kolar";
@@ -808,12 +923,23 @@ function clientSideVoiceParser(text, currentData) {
     extracted.irrigation = "Canal";
   }
 
-  // Detect proposed changes / conflicts against currentData
+  // Detect proposed changes / conflicts against currentData using float tolerance
   const proposed = {};
   if (currentData) {
     for (const [k, v] of Object.entries(extracted)) {
-      if (currentData[k] !== undefined && currentData[k] !== "" && currentData[k] != v) {
-        proposed[k] = { current: currentData[k], spoken: v };
+      if (currentData[k] !== undefined && currentData[k] !== null && currentData[k] !== "") {
+        const cVal = currentData[k];
+        const numC = parseFloat(cVal);
+        const numV = parseFloat(v);
+        let differs = false;
+        if (!isNaN(numC) && !isNaN(numV)) {
+          differs = Math.abs(numC - numV) > 0.05;
+        } else {
+          differs = cVal.toString().trim().toLowerCase() !== v.toString().trim().toLowerCase();
+        }
+        if (differs) {
+          proposed[k] = { current: cVal, spoken: v };
+        }
       }
     }
   }
@@ -842,11 +968,16 @@ async function processVoiceTranscript(transcript) {
   const currentData = {
     name: document.getElementById("input-farmer-name") ? document.getElementById("input-farmer-name").value.trim() : "",
     farmer_name: document.getElementById("input-farmer-name") ? document.getElementById("input-farmer-name").value.trim() : "",
+    phone: document.getElementById("input-farmer-phone") ? document.getElementById("input-farmer-phone").value.trim() : "",
+    village: document.getElementById("input-farmer-village") ? document.getElementById("input-farmer-village").value.trim() : "",
     crop: document.getElementById("select-crop") ? document.getElementById("select-crop").value : "",
     acres: document.getElementById("slider-land-acres") ? parseFloat(document.getElementById("slider-land-acres").value) : 1.5,
     district: document.getElementById("select-mandi-district") ? document.getElementById("select-mandi-district").value : "",
-    irrigation: document.getElementById("select-irrigation") ? document.getElementById("select-irrigation").value : "",
-    phone: document.getElementById("input-farmer-phone") ? document.getElementById("input-farmer-phone").value.trim() : ""
+    yield: document.getElementById("input-crop-yield") ? parseFloat(document.getElementById("input-crop-yield").value) : 18.0,
+    yield_quintals: document.getElementById("input-crop-yield") ? parseFloat(document.getElementById("input-crop-yield").value) : 18.0,
+    costs: document.getElementById("input-crop-costs") ? parseFloat(document.getElementById("input-crop-costs").value) : 24000.0,
+    input_costs: document.getElementById("input-crop-costs") ? parseFloat(document.getElementById("input-crop-costs").value) : 24000.0,
+    irrigation: document.getElementById("select-irrigation") ? document.getElementById("select-irrigation").value : ""
   };
 
   let parseResult = null;

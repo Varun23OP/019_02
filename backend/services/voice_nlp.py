@@ -272,19 +272,106 @@ INDIC_NUMERAL_TRANS = str.maketrans({
     '\u0B6B': '5', '\u0B6C': '6', '\u0B6D': '7', '\u0B6E': '8', '\u0B6F': '9',  # Odia
 })
 
+HINDI_NUM_MAP: Dict[str, float] = {
+    'आधा': 0.5, 'half': 0.5,
+    'सवा': 1.25, 'डेढ़': 1.5, 'देढ़': 1.5, 'one and a half': 1.5, 'one and half': 1.5, 'dedh': 1.5,
+    'पौने दो': 1.75, 'दो': 2.0, 'two': 2.0, 'दोन': 2.0, 'બે': 2.0, 'రెండు': 2.0, 'do': 2.0,
+    'सवा दो': 2.25, 'ढाई': 2.5, 'two and a half': 2.5, 'two and half': 2.5, 'dhai': 2.5,
+    'पौने तीन': 2.75, 'तीन': 3.0, 'three': 3.0, 'teen': 3.0,
+    'चार': 4.0, 'four': 4.0, 'char': 4.0,
+    'पांच': 5.0, 'पाँच': 5.0, 'five': 5.0, 'panch': 5.0,
+    'छह': 6.0, 'छः': 6.0, 'six': 6.0, 'chhah': 6.0,
+    'सात': 7.0, 'seven': 7.0, 'saat': 7.0,
+    'आठ': 8.0, 'eight': 8.0, 'aath': 8.0,
+    'नौ': 9.0, 'nine': 9.0, 'nau': 9.0,
+    'दस': 10.0, 'ten': 10.0, 'das': 10.0,
+    'ग्यारह': 11.0, 'eleven': 11.0, 'gyarah': 11.0,
+    'बारह': 12.0, 'twelve': 12.0, 'barah': 12.0,
+    'तेरह': 13.0, 'thirteen': 13.0, 'terah': 13.0,
+    'चौदह': 14.0, 'fourteen': 14.0, 'chaudah': 14.0,
+    'पंद्रह': 15.0, 'fifteen': 15.0, 'pandrah': 15.0,
+    'सोलह': 16.0, 'sixteen': 16.0, 'solah': 16.0,
+    'सत्रह': 17.0, 'seventeen': 17.0, 'satrah': 17.0,
+    'अठारह': 18.0, 'eighteen': 18.0, 'atharah': 18.0,
+    'उन्नीस': 19.0, 'nineteen': 19.0, 'unnis': 19.0,
+    'बीस': 20.0, 'twenty': 20.0, 'bees': 20.0,
+    'इक्कीस': 21.0, 'twenty one': 21.0, 'twenty-one': 21.0,
+    'बाईस': 22.0, 'twenty two': 22.0, 'twenty-two': 22.0,
+    'तेईस': 23.0, 'twenty three': 23.0, 'twenty-three': 23.0,
+    'चौबीस': 24.0, 'twenty four': 24.0, 'twenty-four': 24.0, 'chaubis': 24.0,
+    'पच्चीस': 25.0, 'twenty five': 25.0, 'twenty-five': 25.0, 'pachis': 25.0, 'pachchis': 25.0,
+    'छब्बीस': 26.0, 'twenty six': 26.0, 'twenty-six': 26.0,
+    'सत्ताईस': 27.0, 'twenty seven': 27.0, 'twenty-seven': 27.0,
+    'अट्ठाईस': 28.0, 'twenty eight': 28.0, 'twenty-eight': 28.0,
+    'उनतीस': 29.0, 'twenty nine': 29.0, 'twenty-nine': 29.0,
+    'तीस': 30.0, 'thirty': 30.0, 'tees': 30.0,
+    'पैंतीस': 35.0, 'thirty five': 35.0, 'thirty-five': 35.0,
+    'चालीस': 40.0, 'forty': 40.0, 'chalis': 40.0,
+    'पैंतालीस': 45.0, 'forty five': 45.0, 'forty-five': 45.0,
+    'पचास': 50.0, 'fifty': 50.0, 'pachas': 50.0,
+    'साठ': 60.0, 'sixty': 60.0,
+    'सत्तर': 70.0, 'seventy': 70.0,
+    'अस्सी': 80.0, 'eighty': 80.0,
+    'नब्बे': 90.0, 'ninety': 90.0,
+    'सौ': 100.0, 'hundred': 100.0,
+}
+
 HINDI_NUMBER_WORDS = [
-    (r'(?<![^\s,।॥])(?:डेढ़|देढ़|dedh|one and a half|one and half)(?![^\s,।॥])', 1.5),
-    (r'(?<![^\s,।॥])(?:ढाई|dhai|two and a half|two and half)(?![^\s,।॥])', 2.5),
-    (r'(?<![^\s,।॥])(?:सवा दो)(?![^\s,।॥])', 2.25),
-    (r'(?<![^\s,।॥])(?:पौने दो)(?![^\s,।॥])', 1.75),
-    (r'(?<![^\s,।॥])(?:सवा एक|सवा)(?![^\s,।॥])', 1.25),
-    (r'(?<![^\s,।॥])(?:आधा|half)(?![^\s,।॥])', 0.5),
-    (r'(?<![^\s,।॥])(?:एक|one|ek|ਇੱਕ|એક|ఒకటి|ఒక|ஒன்று|ஒரு|ಒಂದು|এক|ଗୋଟିଏ)(?![^\s,।॥])', 1.0),
-    (r'(?<![^\s,।॥])(?:दो|two|do|ਦੋ|બે|రెండు|இரண்டு|ಎರಡು|দুই|ଦୁଇ|दोन)(?![^\s,।॥])', 2.0),
-    (r'(?<![^\s,।॥])(?:तीन|three|teen|ਤਿੰਨ|ત્રણ|మూడు|மூன்று|ಮೂರು|তিন|ତିନି)(?![^\s,।॥])', 3.0),
-    (r'(?<![^\s,।॥])(?:चार|four|char|ਚਾਰ|ચાર|నాలుగు|நான்கு|ನಾಲ್ಕು|চার|ଚାରି)(?![^\s,।॥])', 4.0),
-    (r'(?<![^\s,।॥])(?:पांच|पाँच|five|panch|ਪੰਜ|પાંચ|ఐదు|ஐந்து|ಐದು|পাঁচ|ପାଞ୍ଚ)(?![^\s,।॥])', 5.0),
+    (r'(?:(?<=[\s,।॥\(\)\[\]])|^)(?:डेढ़|देढ़|dedh|one and a half|one and half)(?:(?=[\s,।॥\(\)\[\]])|$)', 1.5),
+    (r'(?:(?<=[\s,।॥\(\)\[\]])|^)(?:ढाई|dhai|two and a half|two and half)(?:(?=[\s,।॥\(\)\[\]])|$)', 2.5),
+    (r'(?:(?<=[\s,।॥\(\)\[\]])|^)(?:सवा दो)(?:(?=[\s,।॥\(\)\[\]])|$)', 2.25),
+    (r'(?:(?<=[\s,।॥\(\)\[\]])|^)(?:पौने दो)(?:(?=[\s,।॥\(\)\[\]])|$)', 1.75),
+    (r'(?:(?<=[\s,।॥\(\)\[\]])|^)(?:सवा एक|सवा)(?:(?=[\s,।॥\(\)\[\]])|$)', 1.25),
+    (r'(?:(?<=[\s,।॥\(\)\[\]])|^)(?:आधा|half)(?:(?=[\s,।॥\(\)\[\]])|$)', 0.5),
+    (r'(?:(?<=[\s,।॥\(\)\[\]])|^)(?:एक|one|ek|ਇੱਕ|એક|ఒకటి|ఒక|ஒன்று|ஒரு|ಒಂದು|এক|ଗୋଟିଏ)(?:(?=[\s,।॥\(\)\[\]])|$)', 1.0),
+    (r'(?:(?<=[\s,।॥\(\)\[\]])|^)(?:दो|two|do|ਦੋ|બે|రెండు|இரண்டு|ಎರಡು|দুই|ଦୁଇ|दोन)(?:(?=[\s,।॥\(\)\[\]])|$)', 2.0),
+    (r'(?:(?<=[\s,।॥\(\)\[\]])|^)(?:तीन|three|teen|ਤਿੰਨ|ત્રણ|మూడు|மூன்று|ಮೂರು|তিন|ତିନି)(?:(?=[\s,।॥\(\)\[\]])|$)', 3.0),
+    (r'(?:(?<=[\s,।॥\(\)\[\]])|^)(?:चार|four|char|ਚਾਰ|ચાર|నాలుగు|நான்கு|ನಾಲ್ಕು|চার|ଚାରି)(?:(?=[\s,।॥\(\)\[\]])|$)', 4.0),
+    (r'(?:(?<=[\s,।॥\(\)\[\]])|^)(?:पांच|पाँच|five|panch|ਪੰਜ|પાંચ|ఐదు|ஐந்து|ಐದು|পাঁচ|ପାଞ୍ଚ)(?:(?=[\s,।॥\(\)\[\]])|$)', 5.0),
 ]
+
+def normalize_spoken_numbers(text: str) -> str:
+    """Normalize spoken Indic and English number words, units, thousands, and lakhs into digits."""
+    if not text:
+        return text
+    sorted_keys = sorted(HINDI_NUM_MAP.keys(), key=lambda k: len(k), reverse=True)
+    num_pattern = '|'.join(re.escape(k) for k in sorted_keys)
+
+    # 1. Compound thousands: e.g. 'चौबीस हज़ार', '24 हज़ार', 'twenty four thousand'
+    th_pat = rf'(?:(?<=[\s,।॥\(\)\[\]])|^)({num_pattern}|\d+)\s*(?:हज़ार|हजार|thousand)(?:(?=[\s,।॥\(\)\[\]])|$)'
+    def replace_thousand(m):
+        val_str = m.group(1).lower()
+        if val_str.isdigit():
+            v = int(val_str)
+        else:
+            v = HINDI_NUM_MAP.get(val_str, 0)
+        return str(int(v * 1000))
+    text = re.sub(th_pat, replace_thousand, text, flags=re.IGNORECASE)
+
+    # 2. Compound lakhs: e.g. 'एक लाख', '1 लाख', 'one lakh'
+    lakh_pat = rf'(?:(?<=[\s,।॥\(\)\[\]])|^)({num_pattern}|\d+)\s*(?:लाख|lakh|lac)(?:(?=[\s,।॥\(\)\[\]])|$)'
+    def replace_lakh(m):
+        val_str = m.group(1).lower()
+        if val_str.isdigit():
+            v = int(val_str)
+        else:
+            v = HINDI_NUM_MAP.get(val_str, 0)
+        return str(int(v * 100000))
+    text = re.sub(lakh_pat, replace_lakh, text, flags=re.IGNORECASE)
+
+    # 3. Units with number words: acres, quintals, rupees
+    unit_pat = rf'(?:(?<=[\s,।॥\(\)\[\]])|^)({num_pattern})\s*(acres?|acre|एकड़|एकर|એકર|ఎకరాలు|ஏக்கர்|quintals?|qtl|क्विंटल|ക്വിന്റൽ|rupees?|रुपये|रुपया|રૂપિયા|रू|rs\.?)(?:(?=[\s,।॥\(\)\[\]])|$)'
+    def replace_units(m):
+        num_word = m.group(1).lower()
+        unit = m.group(2)
+        v = HINDI_NUM_MAP.get(num_word, num_word)
+        if isinstance(v, float) and v.is_integer():
+            v = int(v)
+        return f'{v} {unit}'
+    text = re.sub(unit_pat, replace_units, text, flags=re.IGNORECASE)
+
+    return text
+
 
 KNOWN_CROPS = [
     ("Tomato (Horticulture)", ["tomato", "tamatar", "टमाटर", "ટામેટા", "टोमॅटो", "టమాటా", "தக்காளி", "টমেটো", "ଟମାଟୋ", "ਟਮਾਟਰ", "ಟೊಮೆಟೊ"]),
@@ -320,6 +407,24 @@ KNOWN_DISTRICTS = [
 ]
 
 FOLLOWUP_QUESTIONS = {
+    "name": {
+        "hi": "कृपया किसान का पूरा नाम बताएं। (उदा. रमेश पटेल)",
+        "en": "Please provide the farmer's full name (e.g. Ramesh Patel).",
+        "mr": "कृपया शेतकऱ्याचे पूर्ण नाव सांगा. (उदा. रमेश पटेल)",
+        "gu": "કૃપા કરીને ખેડૂતનું પૂરું નામ જણાવો. (દા.ત. રમેશ પટેલ)"
+    },
+    "phone": {
+        "hi": "कृपया अपना 10 अंकों का मोबाइल नंबर बताएं। (उदा. 9876543210)",
+        "en": "Please provide your 10-digit mobile number (e.g. 9876543210).",
+        "mr": "कृपया आपला १० अंकी मोबाईल नंबर सांगा. (उदा. ९८७६५४३२१०)",
+        "gu": "કૃપા કરીને તમારો ૧૦ અંકનો મોબાઈલ નંબર જણાવો. (દા.ત. ૯૮૭૯૧૧૨૨૩૩)"
+    },
+    "village": {
+        "hi": "कृपया अपने गाँव का नाम बताएं। (उदा. पिंपलगांव, रामपुर)",
+        "en": "Please state your village name (e.g. Pimpalgaon, Rampur).",
+        "mr": "कृपया आपल्या गावाचे नाव सांगा. (उदा. पिंपळगाव, नांदगाव)",
+        "gu": "કૃપા કરીને તમારા ગામનું નામ જણાવો. (દા.ત. ગોંડલ)"
+    },
     "crop": {
         "hi": "कृपया बताएं कि आप इस मौसम में कौन सी फसल उगा रहे हैं? (उदा. टमाटर, प्याज, कपास, गेहूं)",
         "en": "Which crop are you cultivating this season? (e.g. Tomato, Onion, Cotton, Wheat)",
@@ -467,7 +572,7 @@ class VoiceNLPService:
             }
 
         raw = transcript.strip()
-        norm_text = raw.translate(INDIC_NUMERAL_TRANS)
+        norm_text = normalize_spoken_numbers(raw.translate(INDIC_NUMERAL_TRANS))
         lower = norm_text.lower()
 
         extracted: Dict[str, Any] = {}
@@ -536,6 +641,7 @@ class VoiceNLPService:
             village_patterns = [
                 r'(?:गाँव|गांव|गाव|गावात|ग्राम|village|gaon)\s+([A-Za-z\u0900-\u0D7F]+)',
                 r'([A-Za-z\u0900-\u0D7F]+)\s*(?:गाँव से|गांव से|गावातून|गावात|village\b)',
+                r'(?:in|at)\s+([A-Za-z]+),\s*(?:[A-Za-z]+)',
                 r'(?:from|at)\s+([A-Za-z]+)\s+village',
                 r'(?:from)\s+([A-Za-z]+)(?:,|\s+village|\s+district)'
             ]
@@ -543,7 +649,7 @@ class VoiceNLPService:
                 m = re.search(vp, norm_text, flags=re.IGNORECASE)
                 if m:
                     v = m.group(1).strip()
-                    if len(v) >= 2 and v.lower() not in ["se", "mein", "hai", "district", "acres", "acre", "land"] and not any(v.lower() in [kw.lower() for kw in d[1]] for d in KNOWN_DISTRICTS):
+                    if len(v) >= 2 and v.lower() not in ["se", "mein", "hai", "district", "acres", "acre", "land", "cultivating", "growing"] and not any(v.lower() in [kw.lower() for kw in d[1]] for d in KNOWN_DISTRICTS):
                         village_cand = v
                         break
 
@@ -660,35 +766,77 @@ class VoiceNLPService:
             confidences["irrigation"] = 0.90
 
         # Build missing fields and follow-ups
-        required_keys = ["crop", "acres", "district", "yield", "costs"]
+        required_keys = ["name", "phone", "village", "district", "crop", "acres", "yield", "costs"]
         missing: List[str] = []
         for k in required_keys:
-            field_name = "projected_yield" if k == "yield" else ("input_costs" if k == "costs" else k)
-            val = extracted.get(field_name)
-            if val is None:
-                if current_data and current_data.get(field_name):
-                    pass
-                else:
-                    missing.append(k)
-                    if len(clarifications) < 2:
-                        prompt_map = FOLLOWUP_QUESTIONS.get(k, {})
-                        clarifications.append(prompt_map.get(lang_code, prompt_map.get("hi", f"Please provide {k}.")))
+            if k == "name":
+                val = extracted.get("name") or extracted.get("farmer_name")
+                cur_val = current_data.get("name") or current_data.get("farmer_name") if current_data else None
+            elif k == "yield":
+                val = extracted.get("yield_quintals") or extracted.get("projected_yield")
+                cur_val = current_data.get("yield_quintals") or current_data.get("projected_yield") if current_data else None
+            elif k == "costs":
+                val = extracted.get("costs") or extracted.get("input_costs")
+                cur_val = current_data.get("costs") or current_data.get("input_costs") if current_data else None
+            else:
+                val = extracted.get(k)
+                cur_val = current_data.get(k) if current_data else None
 
-        # Handle proposed changes / conflicts with current_data
+            if val is None or (isinstance(val, str) and not val.strip()):
+                if not cur_val:
+                    missing.append(k)
+                    if len(clarifications) < 3:
+                        prompt_map = FOLLOWUP_QUESTIONS.get(k, {})
+                        if prompt_map:
+                            clarifications.append(prompt_map.get(lang_code, prompt_map.get("hi", f"Please provide {k}.")))
+
+        # Handle proposed changes / conflicts with current_data using numerical tolerance
+        def _values_conflict(v1: Any, v2: Any) -> bool:
+            if v1 is None or v2 is None:
+                return False
+            try:
+                f1, f2 = float(v1), float(v2)
+                return abs(f1 - f2) > 0.05
+            except (ValueError, TypeError):
+                s1 = str(v1).strip().lower()
+                s2 = str(v2).strip().lower()
+                return s1 != "" and s2 != "" and s1 != s2
+
         proposed_changes: Dict[str, Any] = {}
         if current_data:
-            for k, new_v in extracted.items():
-                if k in current_data and current_data[k] is not None and current_data[k] != "" and current_data[k] != new_v:
-                    proposed_changes[k] = {
-                        "current": current_data[k],
-                        "spoken": new_v
-                    }
+            canonical_check = {
+                "name": extracted.get("name") or extracted.get("farmer_name"),
+                "phone": extracted.get("phone"),
+                "village": extracted.get("village"),
+                "district": extracted.get("district"),
+                "crop": extracted.get("crop"),
+                "acres": extracted.get("acres"),
+                "yield_quintals": extracted.get("yield_quintals") or extracted.get("projected_yield"),
+                "costs": extracted.get("costs") or extracted.get("input_costs"),
+                "irrigation": extracted.get("irrigation")
+            }
+            for k, new_v in canonical_check.items():
+                if new_v is not None:
+                    curr_v = current_data.get(k)
+                    if curr_v is None and k == "name":
+                        curr_v = current_data.get("farmer_name")
+                    elif curr_v is None and k == "yield_quintals":
+                        curr_v = current_data.get("projected_yield") or current_data.get("yield")
+                    elif curr_v is None and k == "costs":
+                        curr_v = current_data.get("input_costs")
+
+                    if curr_v is not None and str(curr_v).strip() != "" and _values_conflict(curr_v, new_v):
+                        proposed_changes[k] = {
+                            "current": curr_v,
+                            "spoken": new_v
+                        }
 
         # Merge mapped fields: only keep what was in current_data or newly extracted
         # If there is a proposed change/conflict, preserve current_data until explicitly accepted
         mapped_fields: Dict[str, Any] = dict(current_data) if current_data else {}
         for k, v in extracted.items():
-            if k not in proposed_changes:
+            canon = "name" if k == "farmer_name" else ("costs" if k == "input_costs" else ("yield_quintals" if k in ["projected_yield", "yield"] else k))
+            if canon not in proposed_changes:
                 mapped_fields[k] = v
 
         return {
