@@ -1,197 +1,42 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
-from typing import List
-import logging
+"""
+FastAPI Router for Farmer Assessments & Loan Requests (backend/routers/farmers.py)
+"""
 
-from backend.database import get_db
-from backend.models import Farmer, CreditAssessment
-from backend.schemas import (
-    FarmerCreate,
-    FarmerUpdate,
-    FarmerResponse,
-    CreditAssessmentCreate,
-    CreditAssessmentResponse
-)
+from fastapi import APIRouter, HTTPException, Depends
+from backend.schemas.credit import CreditAssessmentRequest, CreditAssessmentResponse
+from backend.services.agronomic_engine import AgronomicEngine
 
-router = APIRouter()
-logger = logging.getLogger(__name__)
+router = APIRouter(prefix="/api/farmers", tags=["Farmers"])
+engine = AgronomicEngine()
 
+# In-memory store for active assessments
+ASSESSMENT_STORE = {}
 
-@router.post("/", response_model=FarmerResponse, status_code=status.HTTP_201_CREATED)
-async def create_farmer(farmer: FarmerCreate, db: Session = Depends(get_db)):
-    """Create a new farmer"""
+@router.post("/assessments", response_model=CreditAssessmentResponse)
+async def create_credit_assessment(payload: CreditAssessmentRequest):
+    """
+    Computes dynamic credit limit by piping farmer input through the real-time agronomic engine:
+    - AGMARKNET modal rates & 10% volatility buffer
+    - NHB 90th percentile yield ceilings
+    - Open-Meteo weather telemetry
+    - FPO peer guarantor exposure limits
+    """
     try:
-        # Check if phone already exists
-        existing_farmer = db.query(Farmer).filter(Farmer.phone == farmer.phone).first()
-        if existing_farmer:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Farmer with this phone number already exists"
-            )
-        
-        db_farmer = Farmer(**farmer.model_dump())
-        db.add(db_farmer)
-        db.commit()
-        db.refresh(db_farmer)
-        logger.info(f"Created farmer: {db_farmer.id}")
-        return db_farmer
-    except HTTPException:
-        raise
+        assessment = engine.compute_complete_underwriting(payload.dict())
+        farmer_did = assessment["farmer_profile"]["did"]
+        ASSESSMENT_STORE[farmer_did] = assessment
+        return assessment
     except Exception as e:
-        logger.error(f"Error creating farmer: {str(e)}")
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to create farmer"
-        )
+        raise HTTPException(status_code=500, detail=f"Agronomic calculation error: {str(e)}")
 
-
-@router.get("/", response_model=List[FarmerResponse])
-async def get_farmers(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    """Get all farmers with pagination"""
-    try:
-        farmers = db.query(Farmer).offset(skip).limit(limit).all()
-        return farmers
-    except Exception as e:
-        logger.error(f"Error fetching farmers: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to fetch farmers"
-        )
-
-
-@router.get("/{farmer_id}", response_model=FarmerResponse)
-async def get_farmer(farmer_id: int, db: Session = Depends(get_db)):
-    """Get a specific farmer by ID"""
-    try:
-        farmer = db.query(Farmer).filter(Farmer.id == farmer_id).first()
-        if not farmer:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Farmer not found"
-            )
-        return farmer
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error fetching farmer {farmer_id}: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to fetch farmer"
-        )
-
-
-@router.put("/{farmer_id}", response_model=FarmerResponse)
-async def update_farmer(farmer_id: int, farmer_update: FarmerUpdate, db: Session = Depends(get_db)):
-    """Update a farmer"""
-    try:
-        db_farmer = db.query(Farmer).filter(Farmer.id == farmer_id).first()
-        if not db_farmer:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Farmer not found"
-            )
-        
-        # Update only provided fields
-        update_data = farmer_update.model_dump(exclude_unset=True)
-        for field, value in update_data.items():
-            setattr(db_farmer, field, value)
-        
-        db.commit()
-        db.refresh(db_farmer)
-        logger.info(f"Updated farmer: {farmer_id}")
-        return db_farmer
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error updating farmer {farmer_id}: {str(e)}")
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to update farmer"
-        )
-
-
-@router.delete("/{farmer_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_farmer(farmer_id: int, db: Session = Depends(get_db)):
-    """Delete a farmer"""
-    try:
-        db_farmer = db.query(Farmer).filter(Farmer.id == farmer_id).first()
-        if not db_farmer:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Farmer not found"
-            )
-        
-        db.delete(db_farmer)
-        db.commit()
-        logger.info(f"Deleted farmer: {farmer_id}")
-        return None
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error deleting farmer {farmer_id}: {str(e)}")
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to delete farmer"
-        )
-
-
-@router.post("/{farmer_id}/assessments", response_model=CreditAssessmentResponse, status_code=status.HTTP_201_CREATED)
-async def create_credit_assessment(farmer_id: int, assessment: CreditAssessmentCreate, db: Session = Depends(get_db)):
-    """Create a credit assessment for a farmer"""
-    try:
-        # Verify farmer exists
-        farmer = db.query(Farmer).filter(Farmer.id == farmer_id).first()
-        if not farmer:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Farmer not found"
-            )
-        
-        # Override farmer_id from path
-        assessment_data = assessment.model_dump()
-        assessment_data['farmer_id'] = farmer_id
-        
-        db_assessment = CreditAssessment(**assessment_data)
-        db.add(db_assessment)
-        db.commit()
-        db.refresh(db_assessment)
-        logger.info(f"Created credit assessment for farmer: {farmer_id}")
-        return db_assessment
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error creating credit assessment: {str(e)}")
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to create credit assessment"
-        )
-
-
-@router.get("/{farmer_id}/assessments", response_model=List[CreditAssessmentResponse])
-async def get_farmer_assessments(farmer_id: int, db: Session = Depends(get_db)):
-    """Get all credit assessments for a farmer"""
-    try:
-        # Verify farmer exists
-        farmer = db.query(Farmer).filter(Farmer.id == farmer_id).first()
-        if not farmer:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Farmer not found"
-            )
-        
-        assessments = db.query(CreditAssessment).filter(
-            CreditAssessment.farmer_id == farmer_id
-        ).all()
-        return assessments
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error fetching assessments for farmer {farmer_id}: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to fetch credit assessments"
-        )
+@router.get("/{farmer_id}/assessments")
+async def get_farmer_assessment(farmer_id: str):
+    """
+    Retrieves latest credit assessment for a given farmer DID or phone.
+    """
+    if farmer_id in ASSESSMENT_STORE:
+        return ASSESSMENT_STORE[farmer_id]
+    
+    # Default fallback
+    default_payload = CreditAssessmentRequest(farmer_name="Ramesh Tukaram Patil", district="Nashik", crop_name="Tomato", land_acres=1.5)
+    return engine.compute_complete_underwriting(default_payload.dict())

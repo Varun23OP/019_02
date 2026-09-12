@@ -1,63 +1,53 @@
+"""
+KisanSetu Backend Application (FastAPI)
+"""
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from contextlib import asynccontextmanager
-import logging
+from fastapi.staticfiles import StaticFiles
+import os
 
-from backend.routers import farmers
-from backend.config import settings
-from backend.database import engine, Base
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
-
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Application lifespan events"""
-    # Startup
-    logger.info("Starting Farmer Financial Infrastructure API")
-    Base.metadata.create_all(bind=engine)
-    logger.info("Database tables created")
-    yield
-    # Shutdown
-    logger.info("Shutting down application")
-
+from backend.routers import farmers, lenders, datasets, voice
 
 app = FastAPI(
-    title="Farmer Financial Infrastructure API",
-    description="API for farmer-governed financial infrastructure enabling agricultural credit assessment",
-    version="1.0.0",
-    lifespan=lifespan
+    title="KisanSetu Agronomic Credit & Underwriting API",
+    version="2.0.0",
+    description="Real-time agronomic underwriting network integrating AGMARKNET, NHB yield ceilings, Open-Meteo weather telemetry, and FPO joint-liability caps."
 )
 
-# CORS configuration
+# CORS Middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.ALLOWED_ORIGINS,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Include routers
-app.include_router(farmers.router, prefix="/api/v1/farmers", tags=["farmers"])
-
+# Include Routers
+app.include_router(farmers.router)
+app.include_router(lenders.router)
+app.include_router(datasets.router)
+app.include_router(voice.router)
 
 @app.get("/")
 async def root():
-    """Root endpoint"""
     return {
-        "message": "Farmer Financial Infrastructure API",
-        "version": "1.0.0",
-        "status": "operational"
+        "service": "KisanSetu Dynamic Agronomic Credit Engine",
+        "status": "ONLINE",
+        "version": "2.0.0",
+        "docs_url": "/docs",
+        "datasets_integrated": [
+            "AGMARKNET 2.0 Live Mandi Prices",
+            "NHB 90th-Percentile Yield Ceilings",
+            "CACP Crop Cultivation Schedules",
+            "Open-Meteo Micro-Climate Telemetry",
+            "PM-KISAN OGD Registry",
+            "FPO Joint-Liability Exposure Caps",
+            "e-NAM & WDRA e-NWR Settlement Tracking"
+        ]
     }
 
-
-@app.get("/health")
-async def health_check():
-    """Health check endpoint"""
-    return {"status": "healthy"}
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("backend.main:app", host="0.0.0.0", port=8000, reload=True)
