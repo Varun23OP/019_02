@@ -251,6 +251,143 @@ SAMPLE_VOICE_UTTERANCES: Dict[str, Dict[str, Any]] = {
 }
 
 
+from backend.services.voice_service import voice_service
+
+INDIC_NUMERAL_TRANS = str.maketrans({
+    '\u0966': '0', '\u0967': '1', '\u0968': '2', '\u0969': '3', '\u096A': '4',
+    '\u096B': '5', '\u096C': '6', '\u096D': '7', '\u096E': '8', '\u096F': '9',  # Devanagari
+    '\u0AE6': '0', '\u0AE7': '1', '\u0AE8': '2', '\u0AE9': '3', '\u0AEA': '4',
+    '\u0AEB': '5', '\u0AEC': '6', '\u0AED': '7', '\u0AEE': '8', '\u0AEF': '9',  # Gujarati
+    '\u09E6': '0', '\u09E7': '1', '\u09E8': '2', '\u09E9': '3', '\u09EA': '4',
+    '\u09EB': '5', '\u09EC': '6', '\u09ED': '7', '\u09EE': '8', '\u09EF': '9',  # Bengali
+    '\u0A66': '0', '\u0A67': '1', '\u0A68': '2', '\u0A69': '3', '\u0A6A': '4',
+    '\u0A6B': '5', '\u0A6C': '6', '\u0A6D': '7', '\u0A6E': '8', '\u0A6F': '9',  # Gurmukhi
+    '\u0C66': '0', '\u0C67': '1', '\u0C68': '2', '\u0C69': '3', '\u0C6A': '4',
+    '\u0C6B': '5', '\u0C6C': '6', '\u0C6D': '7', '\u0C6E': '8', '\u0C6F': '9',  # Telugu
+    '\u0CE6': '0', '\u0CE7': '1', '\u0CE8': '2', '\u0CE9': '3', '\u0CEA': '4',
+    '\u0CEB': '5', '\u0CEC': '6', '\u0CED': '7', '\u0CEE': '8', '\u0CEF': '9',  # Kannada
+    '\u0BE6': '0', '\u0BE7': '1', '\u0BE8': '2', '\u0BE9': '3', '\u0BEA': '4',
+    '\u0BEB': '5', '\u0BEC': '6', '\u0BED': '7', '\u0BEE': '8', '\u0BEF': '9',  # Tamil
+    '\u0B66': '0', '\u0B67': '1', '\u0B68': '2', '\u0B69': '3', '\u0B6A': '4',
+    '\u0B6B': '5', '\u0B6C': '6', '\u0B6D': '7', '\u0B6E': '8', '\u0B6F': '9',  # Odia
+})
+
+HINDI_NUMBER_WORDS = [
+    (r'(?<![^\s,।॥])(?:डेढ़|देढ़|dedh|one and a half|one and half)(?![^\s,।॥])', 1.5),
+    (r'(?<![^\s,।॥])(?:ढाई|dhai|two and a half|two and half)(?![^\s,।॥])', 2.5),
+    (r'(?<![^\s,।॥])(?:सवा दो)(?![^\s,।॥])', 2.25),
+    (r'(?<![^\s,।॥])(?:पौने दो)(?![^\s,।॥])', 1.75),
+    (r'(?<![^\s,।॥])(?:सवा एक|सवा)(?![^\s,।॥])', 1.25),
+    (r'(?<![^\s,।॥])(?:आधा|half)(?![^\s,।॥])', 0.5),
+    (r'(?<![^\s,।॥])(?:एक|one|ek|ਇੱਕ|એક|ఒకటి|ఒక|ஒன்று|ஒரு|ಒಂದು|এক|ଗୋଟିଏ)(?![^\s,।॥])', 1.0),
+    (r'(?<![^\s,।॥])(?:दो|two|do|ਦੋ|બે|రెండు|இரண்டு|ಎರಡು|দুই|ଦୁଇ|दोन)(?![^\s,।॥])', 2.0),
+    (r'(?<![^\s,।॥])(?:तीन|three|teen|ਤਿੰਨ|ત્રણ|మూడు|மூன்று|ಮೂರು|তিন|ତିନି)(?![^\s,।॥])', 3.0),
+    (r'(?<![^\s,।॥])(?:चार|four|char|ਚਾਰ|ચાર|నాలుగు|நான்கு|ನಾಲ್ಕು|চার|ଚାରି)(?![^\s,।॥])', 4.0),
+    (r'(?<![^\s,।॥])(?:पांच|पाँच|five|panch|ਪੰਜ|પાંચ|ఐదు|ஐந்து|ಐದು|পাঁচ|ପାଞ୍ଚ)(?![^\s,।॥])', 5.0),
+]
+
+KNOWN_CROPS = [
+    ("Tomato (Horticulture)", ["tomato", "tamatar", "टमाटर", "ટામેટા", "टोमॅटो", "టమాటా", "தக்காளி", "টমেটো", "ଟମାଟୋ", "ਟਮਾਟਰ", "ಟೊಮೆಟೊ"]),
+    ("Cotton", ["cotton", "kapas", "kapaas", "कपास", "કપાસ", "कापूस", "कपाशी", "పత్తి", "பருத்தி", "তুলা", "ਕਪਾਹ", "ಹತ್ತಿ", "କପା"]),
+    ("Soybean", ["soybean", "soya", "सोयाबीन", "સોયાબીન", "సోయాబీನ್", "சோயாபீன்", "সয়াবিন", "ਸੋਇਆਬੀਨ", "ಸೋಯಾಬೀನ್", "ସୋୟାବିନ୍"]),
+    ("Wheat", ["wheat", "gehun", "gehu", "गेहूं", "ઘઉં", "गहू", "గోధుమ", "கோதுமை", "গম", "ਕਣਕ", "ಗೋಧಿ", "ଗହମ"]),
+    ("Onion", ["onion", "pyaz", "kanda", "कांदा", "प्याज", "ડુંગળી", "ఉల్లిపాయ", "வெங்காயம்", "পেঁয়াজ", "ਪਿਆਜ਼", "ಈರುಳ್ಳಿ", "ପିଆଜ"]),
+    ("Maize", ["maize", "makka", "maka", "मक्का", "मका", "మక్కజొన్న", "ಮೆಕ್ಕೆಜೋಳ", "গোমধান", "ਭੁੱਟਾ", "ମକା"]),
+    ("Potato", ["potato", "aloo", "alu", "बटाटा", "आलू", "બટાકા", "ఆలూ", "உருளைக்கிழங்கு", "আলু", "ਆਲੂ", "ಆಲೂಗಡ್ಡೆ", "ଆଳୁ"]),
+    ("Chilli (Dry)", ["chilli", "chili", "mirchi", "मिर्च", "मिरची", "મરચાં", "మిర్చి", "மிளகாய்", "মরিচ", "ਮਿਰਚ", "ಮೆಣಸಿನಕಾಯಿ", "ଲଙ୍କା"]),
+    ("Turmeric", ["turmeric", "haldi", "हल्दी", "हळद", "હળદર", "పసుపు", "மஞ்சள்", "হলুদ", "ਹਲਦੀ", "ಅರಿಶಿನ", "ହଳଦୀ"]),
+    ("Grapes", ["grapes", "angoor", "अंगूर", "द्राक्ष", "દ્રાક્ષ", "திராட்சை", "আঙুর", "ਅੰਗੂਰ", "ದ್ರಾಕ್ಷಿ", "ଅଙ୍ଗୁର"]),
+    ("Pomegranate", ["pomegranate", "anaar", "anar", "अनार", "डाळिंब", "દાડમ", "దానిమ్మ", "மாதுளை", "ದಾಳಿಂಬೆ"]),
+    ("Cauliflower", ["cauliflower", "gobhi", "phool gobhi", "फुलगोभी", "કોબીજ", "క్యಾಲੀఫ్ලవర్", "காலிஃபிளவர்", "ফুলকপি"])
+]
+
+KNOWN_DISTRICTS = [
+    ("Nashik", ["nashik", "nasik", "नासिक", "नाशिक", "નાસિક", "నాసిక్", "நாசிக்", "নাসিক", "ਨਾਸਿਕ", "ನಾಸಿಕ್", "ନଶିକ"]),
+    ("Guntur", ["guntur", "गुंटूर", "ગુંટૂર", "గుంటూరు", "குண்டூர்", "গুন্টুর", "ਗੁੰਟੂਰ", "ಗುಂಟೂರು", "ଗୁଣ୍ଟୁର"]),
+    ("Kolar", ["kolar", "कोलार", "કોલાર", "కోలార్", "கோலார்", "কোলার", "ਕੋਲਾਰ", "ಕೋಲಾರ", "କୋଲାର"]),
+    ("Agra", ["agra", "आगरा", "આગ્રા", "ఆగ్రా", "ஆக்ரா", "আগ্রা", "ਆਗਰਾ", "ಆગ್ರಾ", "ଆଗ୍ରା"]),
+    ("Salem", ["salem", "सेलम", "સેલમ", "సేలం", "சேலம்", "সালেম", "ਸਲੇਮ", "ಸೇಲಂ", "ସାଲେମ"]),
+    ("Amravati", ["amravati", "अमरावती", "અમરાવતી"]),
+    ("Rajkot", ["rajkot", "राजकोट", "રાજકોટ"]),
+    ("Warangal", ["warangal", "वारंगल", "వరంగల్"]),
+    ("Dindigul", ["dindigul", "डिंडीगुल", "திண்டுக்கல்"]),
+    ("Davanagere", ["davanagere", "दावणगेरे", "ದಾವಣಗೆರೆ"]),
+    ("Ludhiana", ["ludhiana", "khanna", "ਲੁਧਿਆਣਾ", "ਖੰਨਾ", "लुधियाना", "खन्ना"]),
+    ("Hooghly", ["hooghly", "हुगली", "হুগলি"]),
+    ("Cuttack", ["cuttack", "कटक", "କଟକ"]),
+    ("Nagaon", ["nagaon", "नगांव", "নগাঁও"]),
+    ("Indore", ["indore", "इंदौर", "ઇન્દોર", "ఇండోర్"])
+]
+
+FOLLOWUP_QUESTIONS = {
+    "crop": {
+        "hi": "कृपया बताएं कि आप इस मौसम में कौन सी फसल उगा रहे हैं? (उदा. टमाटर, प्याज, कपास, गेहूं)",
+        "en": "Which crop are you cultivating this season? (e.g. Tomato, Onion, Cotton, Wheat)",
+        "mr": "तुम्ही कोणते पीक घेत आहात? (उदा. टोमॅटो, कांदा, कापूस, गहू)",
+        "gu": "તમે કયો પાક વાવી રહ્યા છો? (દા.ત. ટામેટા, સોયાબીન, કપાસ)",
+        "te": "మీరు ఏ పంట సాగు చేస్తున్నారు? (ఉదా. టమాటా, పత్తి)",
+        "ta": "நீங்கள் என்ன பயிர் பயிரிடுகிறீர்கள்? (எ.கா. தக்காளி, பருத்தி)",
+        "kn": "ನೀವು ಯಾವ ಬೆಳೆಯನ್ನು ಬೆಳೆಯುತ್ತಿದ್ದೀರಿ? (ಉದಾ. ಟೊಮೆಟೊ, ಮೆಕ್ಕೆಜೋಳ)",
+        "pa": "ਤੁਸੀਂ ਕਿਹੜੀ ਫ਼ਸਲ ਉਗਾ ਰਹੇ ਹੋ? (ਜਿਵੇਂ ਕਣਕ, ਕਪਾਹ)",
+        "bn": "আপনি কোন ফসল চাষ করছেন? (যেমন টমেটো, আলু)",
+        "or": "ଆପଣ କେଉଁ ଫସଲ ଚାଷ କରୁଛନ୍ତି? (ଉଦା. ଟମାଟୋ)",
+        "as": "আপুনি কি শস্য খেতি কৰিছে? (যেনে গোমধান)"
+    },
+    "acres": {
+        "hi": "आपके पास कितने एकड़ कृषि भूमि है? (उदा. 1.5 एकड़, 2 एकड़)",
+        "en": "How many acres of land are you cultivating? (e.g. 1.5 acres, 2 acres)",
+        "mr": "आपल्याकडे किती एकर जमीन आहे? (उदा. १.५ एकर, २ एकर)",
+        "gu": "તમારી પાસે કેટલા એકર જમીન છે? (દા.ત. ૧.૫ એકર, ૨ એકર)",
+        "te": "మీరు ఎన్ని ఎకరాలలో సాగు చేస్తున్నారు? (ఉదా. 1.5 ఎకరాలు, 2 ఎకరాలు)",
+        "ta": "நீங்கள் எத்தனை ஏக்கரில் பயிரிடுகிறீர்கள்? (எ.கா. 1.5 ஏக்கர், 2 ஏக்கர்)",
+        "kn": "ನೀವು ಎಷ್ಟು ಎಕರೆ ಜಮೀನಿನಲ್ಲಿ ಕೃಷಿ ಮಾಡುತ್ತಿದ್ದೀರಿ? (ಉದಾ. 1.5 ಎಕರೆ, 2 ಎಕರೆ)",
+        "pa": "ਤੁਹਾਡੇ ਕੋਲ ਕਿੰਨੇ ਏਕੜ ਜ਼ਮੀਨ ਹੈ? (ਜਿਵੇਂ 1.5 ਏਕੜ, 2 ਏਕੜ)",
+        "bn": "আপনার কত একর জমি আছে? (যেমন ১.৫ একর, ২ একর)",
+        "or": "ଆପଣଙ୍କର କେତେ ଏକର ଜମି ଅଛି? (ଉଦା. ୧.୫ ଏକର, ୨ ଏକର)",
+        "as": "আপোনাৰ কিমান একৰ মাটি আছে? (যেনে ২.০ একৰ)"
+    },
+    "district": {
+        "hi": "आपका खेत किस जिले या मंडी क्षेत्र में स्थित है? (उदा. नासिक, गुंटूर, कोलार, आगरा)",
+        "en": "In which district is your farm located? (e.g. Nashik, Guntur, Kolar, Agra)",
+        "mr": "आपले शेत कोणत्या जिल्ह्यात आहे? (उदा. नाशिक, अमरावती, गुंटूर)",
+        "gu": "તમારું ખેતર કયા જિલ્લામાં આવેલું છે? (દા.ત. રાજકોટ, નાસિક)",
+        "te": "మీ పొలం ఏ జిల్లాలో ఉంది? (ఉదా. వరంగల్, గుంటూరు)",
+        "ta": "உங்கள் பண்ணை எந்த மாவட்டத்தில் உள்ளது? (எ.கா. திண்டுக்கல், சேலம்)",
+        "kn": "ನಿಮ್ಮ ಜಮೀನು ಯಾವ ಜಿಲ್ಲೆಯಲ್ಲಿದೆ? (ಉದಾ. ದಾವಣಗೆರೆ, ಕೋಲಾರ)",
+        "pa": "ਤੁਹਾਡਾ ਖੇਤ ਕਿਸ ਜ਼ਿਲ੍ਹੇ ਵਿੱਚ ਹੈ? (ਜਿਵੇਂ ਲੁਧਿਆਣਾ, ਖੰਨਾ)",
+        "bn": "আপনার খামারটি কোন জেলায় অবস্থিত? (যেমন হুগলি, নদীয়া)",
+        "or": "ଆପଣଙ୍କ ଜମି କେଉଁ ଜିଲ୍ଲାରେ ଅଛି? (ଉଦା. କଟକ)",
+        "as": "আপোনাৰ পথাৰ কোনখন জিলাত অৱস্থিত? (যেনে নগাঁও)"
+    },
+    "yield": {
+        "hi": "प्रति एकड़ आपकी अनुमानित पैदावार कितने क्विंटल है? (उदा. 18 क्विंटल प्रति एकड़)",
+        "en": "What is your expected yield per acre in quintals? (e.g. 18 quintals/acre)",
+        "mr": "प्रति एकर आपले अंदाजे उत्पादन किती क्विंटल आहे? (उदा. ८ क्विंटल)",
+        "gu": "પ્રતિ એકર તમારી અંદાજિત ઉપજ કેટલા ક્વિન્ટલ છે? (દા.ત. ૧૦ ક્વિન્ટલ)",
+        "te": "ఎకరాకు మీ అంచనా దిగుబడి ఎన్ని క్వింటాళ్లు? (ఉదా. 7 క్వింటాళ్లు)",
+        "ta": "ஒரு ஏக்கருக்கு உங்கள் எதிர்பார்க்கப்படும் விளைச்சல் எத்தனை குவிண்டால்?",
+        "kn": "ಪ್ರತಿ ಎಕರೆಗೆ ನಿಮ್ಮ ನಿರೀಕ್ಷಿತ ಇಳುವರಿ ಎಷ್ಟು ಕ್ವಿಂಟಾಲ್‌ಗಳು?",
+        "pa": "ਪ੍ਰਤੀ ਏਕੜ ਤੁਹਾਡੀ ਅਨੁਮਾਨਿਤ ਪੈਦਾਵਾਰ ਕਿੰਨੇ ਕੁਇੰਟਲ ਹੈ?",
+        "bn": "প্রতি একরে আপনার আনুমানিক ফলন কত কুইন্টাল?",
+        "or": "ପ୍ରତି ଏକର କେତେ କ୍ୱିଣ୍ଟାଲ ଅମଳ ଆଶା କରୁଛନ୍ତି?",
+        "as": "প্ৰতি একৰত কিমান কুইন্টল উৎপাদনৰ আশা কৰিছে?"
+    },
+    "costs": {
+        "hi": "अनुमानित खेती का कुल खर्च कितना है? (उदा. 24000 रुपये)",
+        "en": "What are your total estimated input expenses? (e.g. 24000 rupees)",
+        "mr": "आपला एकूण शेती खर्च किती आहे? (उदा. २६००० रुपये)",
+        "gu": "ખેતીનો અંદાજિત કુલ ખર્ચ કેટલો થયો છે? (દા.ત. ૧૮૦૦૦ રૂપિયા)",
+        "te": "మొత్తం ఖర్చులు ఎన్ని రూపాయలు అయ్యాయి? (ఉదా. 22000 రూపాయలు)",
+        "ta": "மொத்த சாகுபடி செலவு எவ்வளவு? (எ.கா. 20000 ரூபாய்)",
+        "kn": "ಒಟ್ಟು ಕೃಷಿ ವೆಚ್ಚ ಎಷ್ಟು? (ಉದಾ. 21000 ರೂ)",
+        "pa": "ਕੁੱਲ ਕਿੰਨਾ ਖਰਚਾ ਆਇਆ ਹੈ? (ਜਿਵੇਂ 25000 ਰੁਪਏ)",
+        "bn": "মোট কত খরচ হয়েছে? (যেমন ২৩০০০ টাকা)",
+        "or": "ମୋଟ କେତେ ଟଙ୍କା ଖର୍ଚ୍ଚ ହୋଇଛି? (ଉଦା. ୧୯୦୦୦ ଟଙ୍କା)",
+        "as": "খেতিত মুঠ কিমান টকা খৰচ হৈছে? (যেনে ২০০০০ টকা)"
+    }
+}
+
+
 class VoiceNLPService:
     """Service to process spoken utterances, transcribe, and map into form fields."""
 
@@ -266,118 +403,303 @@ class VoiceNLPService:
     @staticmethod
     def transcribe_audio_bytes(audio_bytes: bytes, lang_code: str = "hi") -> Dict[str, Any]:
         """
-        Process recorded audio bytes and return transcribed text.
-        Inspects audio length, headers, and returns vernacular speech transcription.
+        Process recorded audio bytes using VoiceService (OpenAI Whisper or Google Speech)
+        and return true transcribed text. Never returns fake hardcoded sample transcripts.
         """
         byte_length = len(audio_bytes) if audio_bytes else 0
-        sample = VoiceNLPService.get_sample_utterance(lang_code)
-        
-        # When user speaks or uploads real audio
-        duration_est_sec = round(byte_length / 32000.0, 1) if byte_length > 0 else 4.5
-        transcript = sample["transcript"]
+        if not audio_bytes or byte_length < 100:
+            return {
+                "success": False,
+                "error": "Empty or corrupted audio recording. Please speak clearly into your microphone.",
+                "raw_transcript": "",
+                "confidence_score": 0.0,
+                "stt_engine": "none",
+                "lang_code": lang_code,
+                "audio_size_bytes": byte_length,
+                "data_status": "EMPTY_AUDIO"
+            }
 
-        return {
-            "lang_code": lang_code,
-            "audio_size_bytes": byte_length,
-            "estimated_duration_sec": max(1.5, min(duration_est_sec, 30.0)),
-            "raw_transcript": transcript,
-            "confidence_score": 0.94,
-            "stt_engine": "Conformer-Multilingual-ASR (Indian Agro-Domain Adapted)",
-            "data_status": "REALTIME_PROCESSED"
-        }
+        res = voice_service.transcribe_audio(audio_bytes, lang_code=lang_code, filename="recorded_audio.wav")
+        if res.get("success") and res.get("transcript"):
+            return {
+                "success": True,
+                "lang_code": lang_code,
+                "audio_size_bytes": byte_length,
+                "raw_transcript": res["transcript"],
+                "confidence_score": 0.94,
+                "stt_engine": res.get("provider", "SpeechRecognition (Google Speech)"),
+                "data_status": "REALTIME_PROCESSED"
+            }
+        else:
+            return {
+                "success": False,
+                "lang_code": lang_code,
+                "audio_size_bytes": byte_length,
+                "raw_transcript": "",
+                "error": res.get("error", "Speech could not be understood. Please speak clearly or use typed input."),
+                "confidence_score": 0.0,
+                "stt_engine": res.get("provider", "none"),
+                "data_status": "ERROR"
+            }
 
     @staticmethod
-    def parse_transcript_to_fields(transcript: str, lang_code: str = "en") -> Dict[str, Any]:
+    def parse_transcript_to_fields(
+        transcript: str,
+        lang_code: str = "hi",
+        current_data: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
         """
-        Extract agronomic entities from transcript using regular expressions and vernacular keyword mapping.
+        Extract verified agronomic entities from spoken/typed transcript across 11 Indian languages.
+        Strictly does NOT invent values or assume missing information.
+        Leaves unmentioned fields unchanged and detects proposed changes/conflicts with current_data.
         """
-        # Default fallback values
-        sample = VoiceNLPService.get_sample_utterance(lang_code)
-        expected = sample.get("expected", SAMPLE_VOICE_UTTERANCES["en"]["expected"])
+        if not transcript or not transcript.strip():
+            return {
+                "mapped_fields": dict(current_data) if current_data else {},
+                "extracted_fields": {},
+                "proposed_changes": {},
+                "confidence_scores": {},
+                "missing_fields": ["crop", "acres", "district", "yield", "costs"],
+                "clarifications": ["कृपया अपने खेत और फसल का विवरण बोलें या टाइप करें।"],
+                "contradictions": [],
+                "raw_transcript": transcript or "",
+                "requires_review": True
+            }
 
-        name = expected["name"]
-        phone = expected["phone"]
-        crop = expected["crop"]
-        acres = expected["acres"]
-        yield_qtl = expected["yield_quintals"]
-        costs = expected["costs"]
-        village = expected["village"]
-        district = expected["district"]
-        state = expected["state"]
-        fpo = expected["fpo"]
+        raw = transcript.strip()
+        norm_text = raw.translate(INDIC_NUMERAL_TRANS)
+        lower = norm_text.lower()
 
-        # Parse mobile numbers (10 continuous digits)
-        phone_match = re.search(r'\b[6-9]\d{9}\b', transcript)
+        extracted: Dict[str, Any] = {}
+        confidences: Dict[str, float] = {}
+        clarifications: List[str] = []
+        contradictions: List[str] = []
+
+        # 1. Phone number (10 continuous digits starting with 6-9)
+        phone_match = re.search(r'\b([6-9]\d{9})\b', norm_text)
         if phone_match:
-            phone = phone_match.group(0)
+            extracted["phone"] = phone_match.group(1)
+            confidences["phone"] = 0.99
 
-        # Parse acreage (e.g. "2 acres", "1.5 एकड़", "2.5 एकर", "2.0 ఎకరాలు")
-        acres_match = re.search(r'(\d+(?:\.\d+)?)\s*(?:acres?|acre|एकड़|एकर|એકર|ఎకరాలు|ஏக்கர்|ಎಕರೆ|ਏਕੜ|একর|ଏକର)', transcript, re.IGNORECASE)
-        if acres_match:
-            try:
-                parsed_acres = float(acres_match.group(1))
-                if 0.1 <= parsed_acres <= 10.0:
-                    acres = parsed_acres
-            except ValueError:
-                pass
+        # 2. Farmer Name Detection
+        name_cand = None
+        name_patterns = [
+            r'(?:mera\s+naam|मेरा\s+नाम|माझे\s+नाव|મારું\s+નામ|ਮੇਰਾ\s+ਨਾਮ|আমার\s+নাম|ମୋର\s+ନାମ|মোৰ\s+নাম)\s+([A-Za-z\u0900-\u0D7F\s\.]+?)(?:है|हूँ|हूं|आहे|છે|\.|,|।|\bफोन|\bमोबाइल|\bगाव|\bगाँव|\bगावात|\bजिल्हा|\bजिला|\bमेरे|\bમેં|$)',
+            r'(?:నా\s+పేరు|என்\s+பெயர்|ನನ್ನ\s+ಹೆಸರು)\s+([A-Za-z\u0900-\u0D7F\s\.]+?)(?:,|\.|।|\s+ఫోన్|\s+கைபேசி|\s+ಮೊಬೈಲ್|$)',
+            r'(?:my\s+name\s+is|i\s+am)\s+([A-Za-z\s\.]+?)(?:,|\.|\bphone|\bfrom|\band|\bvillage|\bdistrict|\bwith|$)',
+            r'^([A-Za-z\u0900-\u0D7F\s]+?)\s*[:：]\s*(?:\d|\bacres|\btomato|\bwheat|\bcotton|\b1|\b2)',
+            r'^([A-Za-z\u0900-\u0D7F\s]{3,25})\s+([6-9]\d{9})'
+        ]
+        for np in name_patterns:
+            m = re.search(np, norm_text, flags=re.IGNORECASE)
+            if m:
+                cand = m.group(1).strip()
+                cand = re.sub(r'^(?:shri|mr|mrs|smt|namaste|hello|namaskar)\b\s*', '', cand, flags=re.IGNORECASE).strip()
+                cand = re.sub(r'\s*(?:hai|hoon|hath|ji|sahab|kumar|sharma)?$', '', cand, flags=re.IGNORECASE).strip()
+                if len(cand) >= 2 and not any(k[0].lower() in cand.lower() for k in KNOWN_CROPS) and not re.search(r'^\d+$', cand):
+                    name_cand = cand
+                    break
 
-        # Parse yield (e.g. "18 quintals", "18 क्विंटल", "10 ક્વિન્ટલ", "16 குவிண்டால்")
-        yield_match = re.search(r'(\d+(?:\.\d+)?)\s*(?:quintals?|qtl|क्विंटल|क्विન્ટલ|ಕ್ವಿಂಟಾಲ್|ਕੁਇੰਟਲ|কুইন্টাল|କ୍ୱିଣ୍ଟାଲ)', transcript, re.IGNORECASE)
+        if name_cand:
+            extracted["name"] = name_cand
+            extracted["farmer_name"] = name_cand
+            confidences["name"] = 0.94
+            confidences["farmer_name"] = 0.94
+
+        # 3. District Detection (Evaluated before village so districts like Nashik are not classified as villages)
+        district_cand = None
+        for dist_name, dist_keywords in KNOWN_DISTRICTS:
+            if any(k in lower for k in dist_keywords):
+                district_cand = dist_name
+                break
+
+        if not district_cand:
+            dist_match = re.search(r'(?:जिला|जिले में|जिल्हा|જિલ્લો|జిల్లా|மாவட்டம்|ಜಿಲ್ಲೆ|ਜ਼ਿਲ੍ਹਾ|জেলা|ଜିଲ୍ଲା|district)\s+([A-Za-z\u0900-\u0D7F]+)', norm_text, flags=re.IGNORECASE)
+            if dist_match:
+                cand_d = dist_match.group(1).strip()
+                if len(cand_d) >= 3 and cand_d.lower() not in ["mein", "se", "hai"]:
+                    district_cand = cand_d
+
+        if district_cand:
+            extracted["district"] = district_cand
+            confidences["district"] = 0.95
+
+        # 4. Village Detection
+        village_cand = None
+        v_suffix = re.search(r'([A-Za-z\u0900-\u0D7F]+(?:गांव|गाव|गाँव|pur|nagar|wadi|वाडी|पुर|नगर))', norm_text, flags=re.IGNORECASE)
+        if v_suffix:
+            cand_v = v_suffix.group(1).strip()
+            if not any(cand_v.lower() in [kw.lower() for kw in d[1]] for d in KNOWN_DISTRICTS):
+                village_cand = cand_v
+
+        if not village_cand:
+            village_patterns = [
+                r'(?:गाँव|गांव|गाव|गावात|ग्राम|village|gaon)\s+([A-Za-z\u0900-\u0D7F]+)',
+                r'([A-Za-z\u0900-\u0D7F]+)\s*(?:गाँव से|गांव से|गावातून|गावात|village\b)',
+                r'(?:from|at)\s+([A-Za-z]+)\s+village',
+                r'(?:from)\s+([A-Za-z]+)(?:,|\s+village|\s+district)'
+            ]
+            for vp in village_patterns:
+                m = re.search(vp, norm_text, flags=re.IGNORECASE)
+                if m:
+                    v = m.group(1).strip()
+                    if len(v) >= 2 and v.lower() not in ["se", "mein", "hai", "district", "acres", "acre", "land"] and not any(v.lower() in [kw.lower() for kw in d[1]] for d in KNOWN_DISTRICTS):
+                        village_cand = v
+                        break
+
+        if not village_cand:
+            for known_v in ["Pimpalgaon", "पिंपलगांव", "Rampur", "रामपुर", "Nandgaon", "नांदगाव", "Gondal", "Wardhannapet", "Oddanchatram", "Harihar", "Alour", "Tarakeswar", "Banki", "Raha", "Lasalgaon"]:
+                if known_v.lower() in lower:
+                    village_cand = known_v
+                    break
+
+        if village_cand:
+            extracted["village"] = village_cand
+            confidences["village"] = 0.92
+
+        # 5. Crop Detection
+        crop_cand = None
+        for crop_name, keywords in KNOWN_CROPS:
+            if any(k in lower for k in keywords):
+                crop_cand = crop_name
+                break
+
+        if crop_cand:
+            extracted["crop"] = crop_cand
+            confidences["crop"] = 0.96
+
+        # 6. Land Area / Acreage Detection & Normalization
+        acres_cand = None
+        # Check for contradictory acreages: e.g. "2 एकड़ या शायद 5 एकड़"
+        mult_acres = re.findall(r'(\d+(?:\.\d+)?)\s*(?:acres?|acre|एकड़|एकर[ात]?|એકર|ఎకరా[లు|ల|ల్లో]?|ஏக்கர்|ஏக்கரில்|ಎಕರೆ|ਏਕੜ|একর|ଏକର|একৰ)', norm_text, flags=re.IGNORECASE)
+        if len(mult_acres) > 1 and len(set(mult_acres)) > 1:
+            contradictions.append(f"Contradictory acreage detected: {', '.join(mult_acres)} acres. Please clarify exact land area.")
+            clarifications.append(f"जमीन का रकबा स्पष्ट करें: {mult_acres[0]} या {mult_acres[1]} एकड़?")
+        else:
+            acre_num_match = re.search(r'(\d+(?:\.\d+)?)\s*(?:acres?|acre|एकड़|एकर[ात]?|એકર|ఎకరా[లు|ల|ల్లో]?|ஏக்கர்|ஏக்கரில்|ಎಕರೆ|ਏਕੜ|একর|ଏକର|একৰ|एकड़ जमीन|acre land)', norm_text, flags=re.IGNORECASE)
+            if acre_num_match:
+                try:
+                    v = float(acre_num_match.group(1))
+                    if 0.1 <= v <= 20.0:
+                        acres_cand = v
+                except ValueError:
+                    pass
+
+            if acres_cand is None:
+                for pat, val in HINDI_NUMBER_WORDS:
+                    full_pat = pat + r'\s*(?:acres?|acre|एकड़|एकर[ात]?|એકર|ఎకరా[లు|ల|ల్లో]?|ஏக்கர்|ஏக்கரில்|ಎಕರೆ|ਏਕੜ|একর|ଏକର|একৰ|एकड़ जमीन|acre land)'
+                    if re.search(full_pat, norm_text, flags=re.IGNORECASE):
+                        acres_cand = val
+                        break
+
+            if acres_cand is None:
+                m = re.search(r'(?:मेरे पास|mere paas|पास)\s*(\d+(?:\.\d+)?)\s*(?:acre|एकड़|एकर)', norm_text, flags=re.IGNORECASE)
+                if m:
+                    try:
+                        v = float(m.group(1))
+                        if 0.1 <= v <= 20.0:
+                            acres_cand = v
+                    except ValueError:
+                        pass
+
+        if acres_cand is not None:
+            extracted["acres"] = acres_cand
+            confidences["acres"] = 0.95
+            if acres_cand > 2.5:
+                clarifications.append(f"सूचना: {acres_cand} एकड़ सीमांत किसान सीमा (2.5 एकड़) से अधिक है।")
+
+        # 7. Projected Yield (Quintals)
+        yield_cand = None
+        yield_match = re.search(r'(\d+(?:\.\d+)?)\s*(?:quintals?|qtl|क्विंटल|ક્વિન્ટલ|કવિન્ટલ|ಕ್ವಿಂಟಾಲ್|క్వింటా[లు|ళ్లు|ల|ళ్ల]?|குவிண்டால்|কুইন্টাল|ਕੁਇੰਟਲ|ക്വിന്റാಲ್|କ୍ୱିଣ୍ଟାଲ|কুইন্টল)', norm_text, flags=re.IGNORECASE)
+        if not yield_match:
+            yield_match = re.search(r'(?:yield|yields?|पैदावार|దిగుబడి|उत्पादन|ਝਾੜ|ফলন|ଅମଳ|விளைச்சல்|ಇಳುವரி)\s*(?:is|of|:)?\s*(\d+(?:\.\d+)?)', norm_text, flags=re.IGNORECASE)
         if yield_match:
             try:
-                parsed_yield = float(yield_match.group(1))
-                if 1.0 <= parsed_yield <= 100.0:
-                    yield_qtl = parsed_yield
+                y = float(yield_match.group(1))
+                if 0.5 <= y <= 120.0:
+                    yield_cand = y
             except ValueError:
                 pass
+        if yield_cand is not None:
+            extracted["projected_yield"] = yield_cand
+            extracted["yield_quintals"] = yield_cand
+            confidences["yield"] = 0.93
+            confidences["projected_yield"] = 0.93
+            confidences["yield_quintals"] = 0.93
 
-        # Parse costs (e.g. "24000 rupees", "24000 रुपये", "18000 રૂપિયા", "25000 ਰੁਪਏ")
-        cost_match = re.search(r'(\d{4,6})\s*(?:rupees?|rs|₹|रुपये|રૂપિયા|ರೂ|ਰੁਪਏ|টাকা|ଟଙ୍କା|টকা)', transcript, re.IGNORECASE)
+        # 8. Costs / Expenses (Rupees)
+        costs_cand = None
+        cost_match = re.search(r'(\d{3,7})\s*(?:rupees?|rs\.?|₹|रुपये|रुपया|રૂપિયા|రూపాయలు|రూ|ரூபாய்|টাকা|ਟଙ୍କਾ|টকা|ਰੁਪਏ|ರೂಪಾಯಿ|ರೂ|ଟଙ୍କା)', norm_text, flags=re.IGNORECASE)
+        if not cost_match:
+            cost_match = re.search(r'(?:खर्च|लागत|expenses?|costs?|cost|खर्चा|ਖਰਚਾ|ఖర్చు|செலவு|খরচ|ਖਰਚ|খৰচ|ವೆಚ್ಚ)\s*(?:लगभग|लगभग है|है|हुआ है|हुआ|आया है|झाला आहे|হৈছে|হয়েছে|is|of|:)?\s*(?:₹|rs\.?|rupees?)?\s*(\d{3,7})', norm_text, flags=re.IGNORECASE)
+        if not cost_match:
+            cost_match = re.search(r'(\d{3,7})\s*(?:रुपये|खर्च|लागत)', norm_text, flags=re.IGNORECASE)
+
         if cost_match:
             try:
-                parsed_costs = float(cost_match.group(1))
-                if 1000 <= parsed_costs <= 300000:
-                    costs = parsed_costs
+                c = float(cost_match.group(1).replace(",", ""))
+                if 500.0 <= c <= 500000.0:
+                    costs_cand = c
             except ValueError:
                 pass
+        if costs_cand is not None:
+            extracted["input_costs"] = costs_cand
+            extracted["costs"] = costs_cand
+            confidences["costs"] = 0.94
+            confidences["input_costs"] = 0.94
 
-        # Crop matching
-        t_lower = transcript.lower()
-        if any(w in t_lower for w in ["tomato", "टमाटर", "ટામેટા", "தக்காளி", "టమాటో", "টমেটো"]):
-            crop = "Tomato (Horticulture)"
-        elif any(w in t_lower for w in ["cotton", "कपास", "કપાસ", "పత్తి", "பருத்தி", "ਕਪਾਹ"]):
-            crop = "Cotton"
-        elif any(w in t_lower for w in ["soybean", "सोयाबीन", "સોયાબીન", "సోయాబీన్"]):
-            crop = "Soybean"
-        elif any(w in t_lower for w in ["wheat", "गेहूं", "ઘઉં", "గోధుమ", "ಗೋಧಿ", "ਕਣਕ"]):
-            crop = "Wheat"
-        elif any(w in t_lower for w in ["maize", "मक्का", "മക്കച്ചോളം", "ಮೆಕ್ಕೆಜೋಳ", "গোমধান"]):
-            crop = "Maize"
-        elif any(w in t_lower for w in ["onion", "प्याज", "ડુંગળી", "வெங்காயம்"]):
-            crop = "Onion"
+        # 9. Irrigation
+        if any(w in lower for w in ["drip", "ड्रिप", "ઠિબક", "ठिबक", "డ్రిప్", "சொட்டு நீர்", "ਤੁਪਕਾ", "ಹನಿ"]):
+            extracted["irrigation"] = "Drip"
+            confidences["irrigation"] = 0.90
+        elif any(w in lower for w in ["rain", "rainfed", "बारिश", "વરસાદ", "पाऊस", "వర్షం", "மழை", "ਮੀਂਹ", "ਮಳೆ"]):
+            extracted["irrigation"] = "Rainfed"
+            confidences["irrigation"] = 0.90
+        elif any(w in lower for w in ["canal", "नहर", "कालवा", "కాలువ", "கால்வாய்", "ਨਹਿਰ"]):
+            extracted["irrigation"] = "Canal"
+            confidences["irrigation"] = 0.90
+
+        # Build missing fields and follow-ups
+        required_keys = ["crop", "acres", "district", "yield", "costs"]
+        missing: List[str] = []
+        for k in required_keys:
+            field_name = "projected_yield" if k == "yield" else ("input_costs" if k == "costs" else k)
+            val = extracted.get(field_name)
+            if val is None:
+                if current_data and current_data.get(field_name):
+                    pass
+                else:
+                    missing.append(k)
+                    if len(clarifications) < 2:
+                        prompt_map = FOLLOWUP_QUESTIONS.get(k, {})
+                        clarifications.append(prompt_map.get(lang_code, prompt_map.get("hi", f"Please provide {k}.")))
+
+        # Handle proposed changes / conflicts with current_data
+        proposed_changes: Dict[str, Any] = {}
+        if current_data:
+            for k, new_v in extracted.items():
+                if k in current_data and current_data[k] is not None and current_data[k] != "" and current_data[k] != new_v:
+                    proposed_changes[k] = {
+                        "current": current_data[k],
+                        "spoken": new_v
+                    }
+
+        # Merge mapped fields: only keep what was in current_data or newly extracted
+        # If there is a proposed change/conflict, preserve current_data until explicitly accepted
+        mapped_fields: Dict[str, Any] = dict(current_data) if current_data else {}
+        for k, v in extracted.items():
+            if k not in proposed_changes:
+                mapped_fields[k] = v
 
         return {
-            "mapped_fields": {
-                "name": name,
-                "phone": phone,
-                "village": village,
-                "district": district,
-                "state": state,
-                "crop": crop,
-                "acres": acres,
-                "projected_yield": yield_qtl,
-                "input_costs": costs,
-                "fpo_affiliation": fpo,
-                "peer_guarantors": [expected["p1"], expected["p2"], expected["p3"]]
-            },
-            "confidence_scores": {
-                "name": 0.92,
-                "phone": 0.98,
-                "crop": 0.96,
-                "acres": 0.95,
-                "yield": 0.91,
-                "costs": 0.93
-            },
-            "requires_review": True,
-            "raw_transcript": transcript
+            "mapped_fields": mapped_fields,
+            "extracted_fields": extracted,
+            "proposed_changes": proposed_changes,
+            "confidence_scores": confidences,
+            "missing_fields": missing,
+            "clarifications": clarifications,
+            "contradictions": contradictions,
+            "raw_transcript": raw,
+            "requires_review": True
         }
+

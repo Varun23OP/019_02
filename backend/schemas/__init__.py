@@ -204,6 +204,7 @@ class LenderDecisionRequest(BaseModel):
 class VoiceParseRequest(BaseModel):
     transcript: str
     lang_code: str = "hi"
+    current_data: Optional[Dict[str, Any]] = None
 
 
 class ConsentRecordRequest(BaseModel):

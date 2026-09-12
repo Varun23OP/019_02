@@ -125,14 +125,36 @@
           </div>
           <div class="voice-content">
             <div class="voice-badge-tag"><i class="fa-solid fa-headset"></i> Kisan Vani Multilingual Voice Assistant</div>
-            <h3 class="voice-prompt-title" id="txt-voice-title">Speak or Click to Simulate Loan Intake</h3>
-            <p class="voice-prompt-msg" id="txt-voice-msg">"Namaste Ramesh ji! Tell us which crop you are cultivating and your land area to calculate your approved credit limit."</p>
+            <h3 class="voice-prompt-title" id="txt-voice-title">Speak or Enter Crop Details via Voice Intake</h3>
+            <p class="voice-prompt-msg" id="txt-voice-msg">"Speak your name, crop, land area, and district to automatically fill the form fields below."</p>
           </div>
         </div>
         <div class="voice-card-right">
           <button class="btn btn-primary" id="btn-trigger-voice"><i class="fa-solid fa-microphone"></i> <span id="lbl-voice-btn">Speak Crop Details</span></button>
           <button class="btn btn-secondary" id="btn-speak-summary"><i class="fa-solid fa-volume-high"></i> Listen Explanation</button>
         </div>
+
+        <!-- Typed / Pasted Spoken Text Fallback -->
+        <div class="voice-typed-row" style="width: 100%; margin-top: 0.75rem; display: flex; gap: 0.5rem;">
+          <input type="text" id="input-spoken-transcript" class="form-control" placeholder="Or type / paste spoken sentence (e.g. मेरा नाम रमेश है। मैं गाँव रामपुर से हूँ। मेरे पास 2 एकड़ जमीन है और मैं टमाटर उगाता हूँ।)" style="flex: 1; font-size: 0.85rem;">
+          <button class="btn btn-primary" id="btn-parse-spoken-text" type="button" style="white-space: nowrap;"><i class="fa-solid fa-wand-magic-sparkles"></i> Extract & Fill Fields</button>
+        </div>
+
+        <!-- Conflict Resolution Box -->
+        <div id="voice-conflict-banner" class="voice-conflict-box" style="display: none; width: 100%; margin-top: 0.75rem; background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 0.75rem 1rem;">
+          <div style="font-weight: 700; color: #92400e; margin-bottom: 0.35rem;"><i class="fa-solid fa-triangle-exclamation"></i> Proposed Voice Changes / Conflict Detected</div>
+          <div id="voice-conflict-list" style="font-size: 0.82rem; color: #78350f; margin-bottom: 0.5rem;"></div>
+          <div style="display: flex; gap: 0.5rem;">
+            <button class="btn btn-sm btn-primary" id="btn-accept-voice-conflicts" type="button"><i class="fa-solid fa-check"></i> Accept Voice Changes</button>
+            <button class="btn btn-sm btn-secondary" id="btn-reject-voice-conflicts" type="button"><i class="fa-solid fa-xmark"></i> Keep Current Values</button>
+          </div>
+        </div>
+
+        <!-- Voice Status Alert Banner -->
+        <div id="voice-status-alert" class="voice-status-box" style="display: none; width: 100%; margin-top: 0.75rem; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 0.65rem 1rem; font-size: 0.85rem; color: #166534;">
+          <i class="fa-solid fa-circle-check"></i> <span id="voice-status-text">Fields populated from voice. Please review the highlighted fields below before clicking 'Calculate Transparent Credit Sizing'.</span>
+        </div>
+
         <div class="voice-quick-queries">
           <span class="quick-label">Try preset farmer profiles:</span>
           <button class="chip" data-preset="tomato_nashik">🍅 Ramesh Patil: 1.5 Ac Tomato (Nashik, MH)</button>
@@ -155,18 +177,18 @@
             <form id="form-credit-calc" onsubmit="return false;">
               <div class="form-grid-2">
                 <div class="form-group">
-                  <label for="input-farmer-name">Farmer Full Name</label>
+                  <label for="input-farmer-name">Farmer Full Name <span class="voice-badge" id="badge-voice-name" style="display:none;"><i class="fa-solid fa-microphone"></i> Voice Updated</span></label>
                   <input type="text" id="input-farmer-name" class="form-control" value="Ramesh Tukaram Patil">
                 </div>
                 <div class="form-group">
-                  <label for="input-farmer-phone">DBT-Linked Mobile Number</label>
+                  <label for="input-farmer-phone">DBT-Linked Mobile Number <span class="voice-badge" id="badge-voice-phone" style="display:none;"><i class="fa-solid fa-microphone"></i> Voice Updated</span></label>
                   <input type="text" id="input-farmer-phone" class="form-control" value="+91 98223 45678">
                 </div>
               </div>
 
               <div class="form-grid-2">
                 <div class="form-group">
-                  <label for="select-mandi-district">State & Mandi APMC Location</label>
+                  <label for="select-mandi-district">State & Mandi APMC Location <span class="voice-badge" id="badge-voice-district" style="display:none;"><i class="fa-solid fa-microphone"></i> Voice Updated</span></label>
                   <select id="select-mandi-district" class="form-control">
                     <option value="Maharashtra_Nashik">Maharashtra - Nashik (Pimpalgaon / Lasalgaon APMC)</option>
                     <option value="Karnataka_Kolar">Karnataka - Kolar (Kolar APMC Yard)</option>
@@ -177,7 +199,7 @@
                   </select>
                 </div>
                 <div class="form-group">
-                  <label for="select-crop">Cultivated Crop</label>
+                  <label for="select-crop">Cultivated Crop <span class="voice-badge" id="badge-voice-crop" style="display:none;"><i class="fa-solid fa-microphone"></i> Voice Updated</span></label>
                   <select id="select-crop" class="form-control">
                     <option value="Tomato">Tomato (Hybrid Vaishali)</option>
                     <option value="Onion">Onion (Nashik Red)</option>
@@ -193,7 +215,7 @@
 
               <div class="form-group slider-box">
                 <div class="slider-header">
-                  <label for="slider-land-acres">Cultivated Land Area (Marginal Farmers &lt; 2.5 Acres)</label>
+                  <label for="slider-land-acres">Cultivated Land Area (Marginal Farmers &lt; 2.5 Acres) <span class="voice-badge" id="badge-voice-acres" style="display:none;"><i class="fa-solid fa-microphone"></i> Voice Updated</span></label>
                   <span class="slider-val" id="lbl-acres-val">1.5 Acres</span>
                 </div>
                 <input type="range" id="slider-land-acres" min="0.5" max="2.5" step="0.1" value="1.5" class="range-slider">
@@ -208,7 +230,7 @@
 
               <div class="form-grid-2">
                 <div class="form-group">
-                  <label for="select-irrigation">Irrigation Facility</label>
+                  <label for="select-irrigation">Irrigation Facility <span class="voice-badge" id="badge-voice-irrigation" style="display:none;"><i class="fa-solid fa-microphone"></i> Voice Updated</span></label>
                   <select id="select-irrigation" class="form-control">
                     <option value="Drip">Micro-Drip Irrigation (+18% Yield Boost)</option>
                     <option value="Canal">Canal / Borewell (Standard Yield Baseline)</option>

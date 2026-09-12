@@ -180,7 +180,8 @@ class VoiceService:
         Does NOT compute credit limits or scores; only extracts verified data fields.
         """
         extracted = dict(current_data) if current_data else {
-            "farmer_name": "Ramesh Tukaram Patil",
+            "farmer_name": "",
+            "village": "",
             "district": "",
             "crop_name": "",
             "land_acres": None,
@@ -188,7 +189,7 @@ class VoiceService:
             "selling_price_per_qtl": None,
             "estimated_expenses_inr": None,
             "existing_loan_obligations_inr": None,
-            "irrigation": "Drip"
+            "irrigation": ""
         }
 
         if not transcript or not transcript.strip():
@@ -223,12 +224,12 @@ class VoiceService:
         crop_definitions = [
             ("Tomato", ["tomato", "tamatar", "टमाटर", "ટામેટા", "टोमॅटो", "టమాటా", "தக்காளி", "টমেটো", "ਟਮਾਟਰ", "ಟೊಮೆಟೊ"]),
             ("Cotton", ["cotton", "kapas", "kapaas", "कपास", "કપાસ", "कापूस", "పత్తి", "பருத்தி", "তুলা", "ਕਪਾਹ", "ಹತ್ತಿ"]),
-            ("Soybean", ["soybean", "soya", "सोयाबीन", "સોયાબીન", "సోయాబీన్", "சோயாபீன்", "সয়াবিন", "ਸੋਇਆਬੀਨ", "ಸೋಯಾಬೀನ್"]),
+            ("Soybean", ["soybean", "soya", "सोयाबीन", "સોયાબીನ್", "సోయాబీನ್", "சோயாபீன்", "সয়াবিন", "ਸੋਇਆਬੀਨ", "ಸೋಯಾಬೀನ್"]),
             ("Wheat", ["wheat", "gehun", "gehu", "गेहूं", "ઘઉં", "गहू", "గోధుమ", "கோதுமை", "গম", "ਕਣਕ", "ಗೋಧಿ"]),
             ("Onion", ["onion", "pyaz", "kanda", "कांदा", "प्याज", "ડુંગળી", "ఉల్లిపాయ", "வெங்காயம்", "পেঁয়াজ", "ਪਿਆਜ਼", "ಈರುಳ್ಳಿ"]),
             ("Chilli (Dry)", ["chilli", "chili", "mirchi", "मिर्च", "મરચાં", "मिरची", "మిర్చి", "மிளகாய்", "মরিচ", "ਮਿਰਚ", "ಮೆಣಸಿನಕಾಯಿ"]),
             ("Potato", ["potato", "aloo", "alu", "बटाटा", "आलू", "બટાકા", "ఆలూ", "உருளைக்கிழங்கு", "আলু", "ਆਲੂ", "ಆಲೂಗಡ್ಡೆ"]),
-            ("Grapes", ["grapes", "angoor", "द्राक्ष", "દ્રાક્ષ", "ద్రాక్ష", "திராட்சை", "আঙুর", "ਅੰਗੂਰ", "ದ್ರಾಕ್ಷಿ"]),
+            ("Grapes", ["grapes", "angoor", "द्राक्ष", "દ્રાક્ષ", "द्राक्ष", "திராட்சை", "আঙুর", "ਅੰਗੂਰ", "ದ್ರಾಕ್ಷಿ"]),
             ("Turmeric", ["turmeric", "haldi", "हळद", "હળદર", "పసుపు", "மஞ்சள்", "হলুদ", "ਹਲਦੀ", "ಅರಿಶಿನ"])
         ]
 
@@ -252,15 +253,13 @@ class VoiceService:
                 break
 
         # 3. Acres Detection (Spoken numbers & decimal numbers)
-        # Match "1.5 acres", "2 acre", "दोध एकड़", "२ एकर", etc.
-        acre_match = re.search(r'([0-9]+(?:\.[0-9]+)?)\s*(?:acres?|acre|एकड़|એકર|एकर|ఎకరా[లు|ల]?|ஏக்கர்|একর|ਏਕੜ|ಎಕರೆ)', lower)
+        acre_match = re.search(r'([0-9]+(?:\.[0-9]+)?)\s*(?:acres?|acre|एकड़|એકર|एकर|ఎకరా[లు|ల|ల్లో]?|ஏக்கர்|ஏக்கரில்|একর|ਏਕੜ|ಎಕರೆ)', lower)
         if acre_match:
             try:
                 extracted["land_acres"] = float(acre_match.group(1))
             except Exception:
                 pass
         else:
-            # Word numbers in regional speech
             word_numbers = {
                 "one": 1.0, "two": 2.0, "three": 3.0, "half": 0.5, "one and half": 1.5, "two and half": 2.5,
                 "एक": 1.0, "दो": 2.0, "तीन": 3.0, "डेढ़": 1.5, "ढाई": 2.5,
@@ -273,12 +272,14 @@ class VoiceService:
                 "ಒಂದು": 1.0, "ಎರಡು": 2.0, "ಒಂದೂವರೆ": 1.5
             }
             for word, val in word_numbers.items():
-                if any(k in lower for k in [f"{word} acre", f"{word} एकड़", f"{word} એકર", f"{word} एकर", f"{word} ఎకరా", f"{word} ஏக்கர்"]):
+                if any(k in lower for k in [f"{word} acre", f"{word} एकड़", f"{word} એકર", f"{word} एकर", f"{word} ఎకరా", f"{word} ஏக்கர்", f"{word} ஏக்கரில்"]):
                     extracted["land_acres"] = val
                     break
 
         # 4. Yield per acre detection (Quintals)
-        yield_match = re.search(r'([0-9]+(?:\.[0-9]+)?)\s*(?:quintals?|qtl|quintal|क्विंटल|ક્વિન્ટલ|క్వింటా[లు|ళ్లు|ల]?|குவிண்டால்|কুইন্টাল|ਕੁਇੰਟਲ|ಕ್ವಿಂಟಾಲ್)', lower)
+        yield_match = re.search(r'([0-9]+(?:\.[0-9]+)?)\s*(?:quintals?|qtl|quintal|क्विंटल|ક્વિન્ટલ|કવિન્ટલ|क्विન્ટલ|ಕ್ವಿಂಟಾಲ್|ക്വിന്റാൽ|ക്विנטా[లు|ళ్లు|ల]?|குவிண்டால்|কুইন্টাল|ਕੁਇੰਟਲ)', lower)
+        if not yield_match:
+            yield_match = re.search(r'(?:yield|पैदावार|దిగుబడి|उत्पादन|ਝਾੜ|ফলন|விளைச்சல்|ಇಳುವರಿ)\s*(?:is|of|:)?\s*([0-9]+(?:\.[0-9]+)?)', lower)
         if yield_match:
             try:
                 extracted["expected_yield_qtl_acre"] = float(yield_match.group(1))

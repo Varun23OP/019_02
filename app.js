@@ -437,8 +437,10 @@ function hashString(str) {
 }
 
 // Voice Assistant Simulator & Web Speech API
-// Web Speech API: Live Speech Recognition & Multi-Language Synthesis
+// Web Speech API: Live Speech Recognition & Natural Language Extraction
 let recognitionInstance = null;
+const userManuallyEditedFields = new Set();
+let pendingVoiceConflicts = null;
 
 function initVoiceSimulator() {
   const micBtn = document.getElementById("btn-voice-mic");
@@ -447,13 +449,83 @@ function initVoiceSimulator() {
   const titleEl = document.getElementById("txt-voice-title");
   const msgEl = document.getElementById("txt-voice-msg");
 
+  // Typed Speech Input Fallback
+  const typedInput = document.getElementById("input-spoken-transcript");
+  const parseBtn = document.getElementById("btn-parse-spoken-text");
+  if (parseBtn && typedInput) {
+    parseBtn.addEventListener("click", () => {
+      const text = typedInput.value.trim();
+      if (text) {
+        processVoiceTranscript(text);
+      }
+    });
+    typedInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        const text = typedInput.value.trim();
+        if (text) {
+          processVoiceTranscript(text);
+        }
+      }
+    });
+  }
+
+  // Conflict Resolution Buttons
+  const acceptConflictsBtn = document.getElementById("btn-accept-voice-conflicts");
+  const rejectConflictsBtn = document.getElementById("btn-reject-voice-conflicts");
+  if (acceptConflictsBtn) {
+    acceptConflictsBtn.addEventListener("click", () => {
+      if (pendingVoiceConflicts && pendingVoiceConflicts.conflicts) {
+        const acceptedLabels = [];
+        for (const [key, conf] of Object.entries(pendingVoiceConflicts.conflicts)) {
+          setFormFieldValue(key, conf.spoken);
+          acceptedLabels.push(formatFieldLabel(key));
+        }
+        const banner = document.getElementById("voice-conflict-banner");
+        if (banner) banner.style.display = "none";
+        const statusAlert = document.getElementById("voice-status-alert");
+        const statusText = document.getElementById("voice-status-text");
+        if (statusAlert && statusText) {
+          statusText.innerText = `✅ Accepted spoken changes for [${acceptedLabels.join(", ")}]. Please review your inputs and click 'Calculate Transparent Credit Sizing' when ready.`;
+          statusAlert.style.display = "block";
+        }
+        pendingVoiceConflicts = null;
+      }
+    });
+  }
+
+  if (rejectConflictsBtn) {
+    rejectConflictsBtn.addEventListener("click", () => {
+      const banner = document.getElementById("voice-conflict-banner");
+      if (banner) banner.style.display = "none";
+      pendingVoiceConflicts = null;
+    });
+  }
+
+  // Track user manual changes so voice does not silently overwrite them
+  const trackableFieldIds = [
+    "input-farmer-name",
+    "input-farmer-phone",
+    "select-mandi-district",
+    "select-crop",
+    "slider-land-acres",
+    "select-irrigation"
+  ];
+  trackableFieldIds.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener("change", () => userManuallyEditedFields.add(id));
+      el.addEventListener("input", () => userManuallyEditedFields.add(id));
+    }
+  });
+
   // Check if browser supports Web Speech API Recognition
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   
   const startLiveVoiceRecognition = () => {
     micBtn.classList.add("listening");
     titleEl.innerText = "🎙️ Listening... Speak your crop, land area, & district now";
-    msgEl.innerText = `Microphone active in ${currentLang.toUpperCase()} - (e.g. "Tomato on 2 acres in Nashik with drip irrigation")`;
+    msgEl.innerText = `Microphone active in ${currentLang.toUpperCase()} - speak in Hindi or regional language...`;
 
     if (SpeechRecognition) {
       try {
@@ -472,7 +544,7 @@ function initVoiceSimulator() {
           pa: "pa-IN",
           kn: "kn-IN"
         };
-        recognitionInstance.lang = langMap[currentLang] || "en-IN";
+        recognitionInstance.lang = langMap[currentLang] || "hi-IN";
         recognitionInstance.interimResults = true;
         recognitionInstance.maxAlternatives = 1;
 
@@ -484,13 +556,15 @@ function initVoiceSimulator() {
           msgEl.innerText = `"${transcript}"`;
 
           if (event.results[0].isFinal) {
-            parseSpokenAgronomicInput(transcript);
+            processVoiceTranscript(transcript);
           }
         };
 
         recognitionInstance.onerror = (event) => {
-          console.warn("Speech Recognition error / permission denied, using simulation:", event.error);
-          triggerFallbackSimulation();
+          console.warn("Speech Recognition error / permission denied:", event.error);
+          micBtn.classList.remove("listening");
+          titleEl.innerText = "⚠️ Microphone Inactive";
+          msgEl.innerText = `Microphone could not be accessed (${event.error || "denied"}). You can type or paste your spoken sentence in the input box below.`;
         };
 
         recognitionInstance.onend = () => {
@@ -504,32 +578,10 @@ function initVoiceSimulator() {
       }
     }
     
-    // Fallback simulation if mic is unavailable or blocked in browser
-    triggerFallbackSimulation();
-  };
-
-  const triggerFallbackSimulation = () => {
-    micBtn.classList.add("listening");
-    titleEl.innerText = "🎙️ Synthesizing Voice Input...";
-    msgEl.innerText = "Recognizing spoken phonemes and extracting agronomic telemetry...";
-
-    setTimeout(() => {
-      micBtn.classList.remove("listening");
-      const sample = getSampleTextForLang(currentLang);
-      titleEl.innerText = "🗣️ Spoken Input Captured & Synchronized:";
-      msgEl.innerText = `"${sample}"`;
-      
-      // Auto populate and recalculate
-      document.getElementById("input-farmer-name").value = "Ramesh Tukaram Patil";
-      document.getElementById("select-mandi-district").value = "Maharashtra_Nashik";
-      document.getElementById("select-crop").value = "Tomato";
-      document.getElementById("slider-land-acres").value = "1.5";
-      document.getElementById("lbl-acres-val").innerText = "1.5 Acres";
-      document.getElementById("select-irrigation").value = "Drip";
-      
-      calculateCreditProfile();
-      speakTextSummary();
-    }, 1800);
+    // Browser does not support Web Speech API
+    micBtn.classList.remove("listening");
+    titleEl.innerText = "ℹ️ Microphone API Not Supported";
+    msgEl.innerText = "Your browser does not support live microphone recognition. Please type or paste your spoken sentence in the text box below.";
   };
 
   micBtn.addEventListener("click", startLiveVoiceRecognition);
@@ -537,25 +589,157 @@ function initVoiceSimulator() {
   summaryBtn.addEventListener("click", speakTextSummary);
 }
 
-function getSampleTextForLang(lang) {
-  const samples = {
-    en: "Ramesh Patil: 1.5 acres of Tomato crop in Nashik with Drip Irrigation and 3-peer FPO circle.",
-    hi: "नमस्ते रमेश पाटिल: नासिक में 1.5 एकड़ टमाटर की फसल, ड्रिप सिंचाई और 3-साथी गारंटी।",
-    gu: "રમેશભાઈ પટેલ: નાસિકમાં ૧.૫ એકર ટામેટાં, ડ્રિપ ઇરિગેશન અને ૩-ખેડૂત ગેરંટી.",
-    mr: "रमेश पाटील: नाशिकमध्ये १.५ एकर टोमॅटो पीक, ठिबक सिंचन आणि ३-शेतकरी हमी गट.",
-    te: "రమేష్ పాటిల్: నాసిక్‌లో 1.5 ఎకరాల టమాటా, డ్రిప్ ఇరిగేషన్ మరియు 3-రైతుల గ్రూప్.",
-    ta: "ரமேஷ் பாட்டீல்: நாசிக்கில் 1.5 ஏக்கர் தக்காளி, சொட்டு நீர் பாசனம்.",
-    bn: "রমেশ পাটিল: নাসিকে ১.৫ একর টমেটো, ড্রিপ সেচ এবং ৩-সদস্যের দল।",
-    pa: "ਰਮੇਸ਼ ਪਾਟਿਲ: ਨਾਸਿਕ ਵਿੱਚ 1.5 ਏਕੜ ਟਮਾਟਰ, ਤੁਪਕਾ ਸਿੰਚਾਈ।",
-    kn: "ರಮೇಶ್ ಪಾಟೀಲ್: ನಾಸಿಕ್‌ನಲ್ಲಿ 1.5 ಎಕರೆ ಟೊಮೆಟೊ, ಹನಿ ನೀರಾವರಿ."
+function getFieldElementId(key) {
+  const map = {
+    name: "input-farmer-name",
+    farmer_name: "input-farmer-name",
+    crop: "select-crop",
+    acres: "slider-land-acres",
+    district: "select-mandi-district",
+    village: "select-mandi-district",
+    irrigation: "select-irrigation",
+    phone: "input-farmer-phone"
   };
-  return samples[lang] || samples.en;
+  return map[key] || null;
 }
 
-// Natural Language Parser for Spoken Agronomic Parameters
-function parseSpokenAgronomicInput(text) {
-  const lower = text.toLowerCase();
+function formatFieldLabel(key) {
+  const map = {
+    name: "Farmer Name",
+    farmer_name: "Farmer Name",
+    crop: "Cultivated Crop",
+    acres: "Land Acreage",
+    district: "State & District",
+    village: "Village",
+    irrigation: "Irrigation Facility",
+    phone: "Mobile Number"
+  };
+  return map[key] || key;
+}
+
+function highlightField(inputEl, badgeId) {
+  if (inputEl) {
+    inputEl.classList.add("voice-updated-highlight");
+  }
+  if (badgeId) {
+    const badge = document.getElementById(badgeId);
+    if (badge) {
+      badge.style.display = "inline-flex";
+    }
+  }
+}
+
+function setFormFieldValue(key, val) {
+  if (val === null || val === undefined || val === "") return false;
   
+  if (key === "name" || key === "farmer_name") {
+    const el = document.getElementById("input-farmer-name");
+    if (el) {
+      el.value = val;
+      highlightField(el, "badge-voice-name");
+      return true;
+    }
+  } else if (key === "crop") {
+    const el = document.getElementById("select-crop");
+    if (el) {
+      let matched = false;
+      const lowerVal = val.toString().toLowerCase();
+      for (let opt of el.options) {
+        if (opt.value.toLowerCase() === lowerVal || opt.text.toLowerCase().includes(lowerVal) || lowerVal.includes(opt.value.toLowerCase())) {
+          el.value = opt.value;
+          matched = true;
+          break;
+        }
+      }
+      if (!matched) {
+        el.value = "Tomato";
+      }
+      highlightField(el, "badge-voice-crop");
+      return true;
+    }
+  } else if (key === "acres") {
+    const el = document.getElementById("slider-land-acres");
+    const num = parseFloat(val);
+    if (el && !isNaN(num)) {
+      const clamped = Math.min(2.5, Math.max(0.5, num));
+      el.value = clamped.toString();
+      const lbl = document.getElementById("lbl-acres-val");
+      if (lbl) lbl.innerText = `${clamped} Acres`;
+      highlightField(el, "badge-voice-acres");
+      return true;
+    }
+  } else if (key === "district" || key === "village") {
+    const el = document.getElementById("select-mandi-district");
+    if (el) {
+      const lower = val.toString().toLowerCase();
+      for (let opt of el.options) {
+        if (opt.value.toLowerCase().includes(lower) || opt.text.toLowerCase().includes(lower)) {
+          el.value = opt.value;
+          break;
+        }
+      }
+      highlightField(el, "badge-voice-district");
+      return true;
+    }
+  } else if (key === "irrigation") {
+    const el = document.getElementById("select-irrigation");
+    if (el) {
+      for (let opt of el.options) {
+        if (opt.value.toLowerCase() === val.toString().toLowerCase()) {
+          el.value = opt.value;
+          break;
+        }
+      }
+      highlightField(el, "badge-voice-irrigation");
+      return true;
+    }
+  } else if (key === "phone") {
+    const el = document.getElementById("input-farmer-phone");
+    if (el) {
+      el.value = val;
+      highlightField(el, "badge-voice-phone");
+      return true;
+    }
+  }
+  return false;
+}
+
+// Client-side fallback NLP parser for offline / direct browser use
+function clientSideVoiceParser(text, currentData) {
+  // Normalize Indic digits across 8 regional scripts
+  const norm = text.replace(/[\u0660-\u0669\u06F0-\u06F9\u0966-\u096F\u09E6-\u09EF\u0A66-\u0A6F\u0AE6-\u0AEF\u0B66-\u0B6F\u0BE6-\u0BEF\u0C66-\u0C6F\u0CE6-\u0CEF]/g, d => d.charCodeAt(0) & 0xf);
+  const lower = norm.toLowerCase();
+  const extracted = {};
+
+  // Farmer Name
+  const namePatterns = [
+    /(?:mera\s+naam|मेरा\s+नाम|माझे\s+नाव|મારું\s+નામ|నా\s+పేరు|என்\s+பெயர்|my\s+name\s+is)\s+([A-Za-z\u0900-\u0D7F\s\.]+?)(?:है|हूँ|आहे|છે|\.|,|।|मेरे|गाँव|गाव|village|district|acres|जमीन|$)/i
+  ];
+  for (const p of namePatterns) {
+    const m = norm.match(p);
+    if (m && m[1].trim().length >= 2) {
+      extracted.farmer_name = m[1].trim();
+      extracted.name = extracted.farmer_name;
+      break;
+    }
+  }
+
+  // Village
+  const villagePatterns = [
+    /(?:गाँव|गांव|गाव|गावात|ग्राम|village|gaon)\s+([A-Za-z\u0900-\u0D7F]+)/i,
+    /([A-Za-z\u0900-\u0D7F]+)\s*(?:गाँव से|गांव से|गावातून|village)/i
+  ];
+  for (const vp of villagePatterns) {
+    const m = norm.match(vp);
+    if (m && m[1].trim().length >= 2) {
+      const v = m[1].trim();
+      if (!["se", "mein", "hai"].includes(v.toLowerCase())) {
+        extracted.village = v;
+        break;
+      }
+    }
+  }
+
   // Crop detection
   const crops = [
     { name: "Tomato", matches: ["tomato", "tamatar", "टमाटर", "ટામેટા", "टोमॅटो", "టమాటా", "தக்காளி"] },
@@ -563,50 +747,179 @@ function parseSpokenAgronomicInput(text) {
     { name: "Chilli (Dry)", matches: ["chilli", "mirchi", "chili", "मिर्च", "મરચાં", "మిర్చి", "மிளகாய்"] },
     { name: "Potato", matches: ["potato", "aloo", "बटाटा", "आलू", "બટાકા", "బంగాళాదుంప", "உருளைக்கிழங்கு"] },
     { name: "Grapes", matches: ["grapes", "angoor", "द्राक्ष", "દ્રાક્ષ", "திராட்சை"] },
-    { name: "Turmeric", matches: ["turmeric", "haldi", "हळद", "હળદર", "மஞ்சள்"] }
+    { name: "Turmeric", matches: ["turmeric", "haldi", "हळद", "હળદર", "மஞ்சள்"] },
+    { name: "Wheat", matches: ["wheat", "gehun", "गेहूं", "ਕਣਕ"] },
+    { name: "Soybean", matches: ["soybean", "soya", "सोयाबीन"] },
+    { name: "Cotton", matches: ["cotton", "kapas", "कपास", "कापूस", "పత్తి"] },
+    { name: "Maize", matches: ["maize", "makka", "मक्का", "मका", "మొక్కజొన్న"] }
   ];
-
   for (const c of crops) {
     if (c.matches.some(m => lower.includes(m))) {
-      document.getElementById("select-crop").value = c.name;
+      extracted.crop = c.name;
       break;
     }
   }
 
-  // Acres detection (regex for numbers)
-  const acreMatch = lower.match(/([0-9]+(?:\.[0-9]+)?)\s*(?:acres?|acre|एकड़|એકર|एकर|ఎకరాలు|ஏக்கர்)/i) || lower.match(/([0-9]+(?:\.[0-9]+)?)/);
-  if (acreMatch) {
-    const val = parseFloat(acreMatch[1]);
-    if (val >= 0.5 && val <= 2.5) {
-      document.getElementById("slider-land-acres").value = val.toString();
-      document.getElementById("lbl-acres-val").innerText = `${val} Acres`;
+  // Acres detection with numeric and Hindi word support
+  const hindiWordAcres = [
+    [/आधा/i, 0.5], [/डेढ़|देढ़/i, 1.5], [/ढाई/i, 2.5],
+    [/एक/i, 1.0], [/दो/i, 2.0], [/तीन/i, 3.0]
+  ];
+  let acreFound = null;
+  const acreNumMatch = norm.match(/(\d+(?:\.\d+)?)\s*(?:acres?|acre|एकड़|એકર|एकर|ఎకరాలు|ஏக்கர்|एकड़ जमीन)/i);
+  if (acreNumMatch) {
+    acreFound = parseFloat(acreNumMatch[1]);
+  } else {
+    for (const [p, val] of hindiWordAcres) {
+      if (p.test(norm)) {
+        acreFound = val;
+        break;
+      }
     }
+  }
+  if (acreFound !== null && acreFound >= 0.1 && acreFound <= 20.0) {
+    extracted.acres = acreFound;
   }
 
   // District detection
   if (lower.includes("kolar") || lower.includes("कोलार") || lower.includes("ಕೋಲಾರ")) {
-    document.getElementById("select-mandi-district").value = "Karnataka_Kolar";
+    extracted.district = "Karnataka_Kolar";
   } else if (lower.includes("guntur") || lower.includes("गुंटूर") || lower.includes("గుంటూరు")) {
-    document.getElementById("select-mandi-district").value = "Andhra Pradesh_Guntur";
+    extracted.district = "Andhra Pradesh_Guntur";
   } else if (lower.includes("agra") || lower.includes("आगरा")) {
-    document.getElementById("select-mandi-district").value = "Uttar Pradesh_Agra";
+    extracted.district = "Uttar Pradesh_Agra";
   } else if (lower.includes("salem") || lower.includes("सेलम") || lower.includes("சேலம்")) {
-    document.getElementById("select-mandi-district").value = "Tamil Nadu_Salem";
-  } else {
-    document.getElementById("select-mandi-district").value = "Maharashtra_Nashik";
+    extracted.district = "Tamil Nadu_Salem";
+  } else if (lower.includes("indore") || lower.includes("इंदौर")) {
+    extracted.district = "Madhya Pradesh_Indore";
+  } else if (lower.includes("nashik") || lower.includes("नासिक") || lower.includes("नाशिक") || lower.includes("pimpalgaon") || lower.includes("रामपुर") || lower.includes("rampur")) {
+    extracted.district = "Maharashtra_Nashik";
   }
 
   // Irrigation detection
   if (lower.includes("drip") || lower.includes("ड्रिप") || lower.includes("ઠિબક") || lower.includes("డ్రిప్")) {
-    document.getElementById("select-irrigation").value = "Drip";
-  } else if (lower.includes("rain") || lower.includes("बारिश") || lower.includes("વરસાદ")) {
-    document.getElementById("select-irrigation").value = "Rainfed";
-  } else {
-    document.getElementById("select-irrigation").value = "Canal";
+    extracted.irrigation = "Drip";
+  } else if (lower.includes("rain") || lower.includes("बारिश") || lower.includes("વરસાદ") || lower.includes("rainfed")) {
+    extracted.irrigation = "Rainfed";
+  } else if (lower.includes("canal") || lower.includes("नहर")) {
+    extracted.irrigation = "Canal";
   }
 
-  calculateCreditProfile();
-  speakTextSummary();
+  // Detect proposed changes / conflicts against currentData
+  const proposed = {};
+  if (currentData) {
+    for (const [k, v] of Object.entries(extracted)) {
+      if (currentData[k] !== undefined && currentData[k] !== "" && currentData[k] != v) {
+        proposed[k] = { current: currentData[k], spoken: v };
+      }
+    }
+  }
+
+  return {
+    raw_transcript: text,
+    extracted_fields: extracted,
+    mapped_fields: extracted,
+    proposed_changes: proposed
+  };
+}
+
+// Master Voice Transcript Processor
+async function processVoiceTranscript(transcript) {
+  if (!transcript || !transcript.trim()) return;
+
+  const titleEl = document.getElementById("txt-voice-title");
+  const msgEl = document.getElementById("txt-voice-msg");
+  const typedInput = document.getElementById("input-spoken-transcript");
+
+  if (titleEl) titleEl.innerText = "🗣️ Voice Transcript Captured:";
+  if (msgEl) msgEl.innerText = `"${transcript}"`;
+  if (typedInput) typedInput.value = transcript;
+
+  // Gather current form data for conflict detection
+  const currentData = {
+    name: document.getElementById("input-farmer-name") ? document.getElementById("input-farmer-name").value.trim() : "",
+    farmer_name: document.getElementById("input-farmer-name") ? document.getElementById("input-farmer-name").value.trim() : "",
+    crop: document.getElementById("select-crop") ? document.getElementById("select-crop").value : "",
+    acres: document.getElementById("slider-land-acres") ? parseFloat(document.getElementById("slider-land-acres").value) : 1.5,
+    district: document.getElementById("select-mandi-district") ? document.getElementById("select-mandi-district").value : "",
+    irrigation: document.getElementById("select-irrigation") ? document.getElementById("select-irrigation").value : "",
+    phone: document.getElementById("input-farmer-phone") ? document.getElementById("input-farmer-phone").value.trim() : ""
+  };
+
+  let parseResult = null;
+
+  // Attempt backend API call first
+  try {
+    const resp = await fetch("/api/v1/voice/parse", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        transcript: transcript,
+        lang_code: currentLang || "hi",
+        current_data: currentData
+      })
+    });
+    if (resp.ok) {
+      parseResult = await resp.json();
+    }
+  } catch (err) {
+    console.info("Using resilient local NLP parser (backend unavailable):", err);
+  }
+
+  if (!parseResult) {
+    parseResult = clientSideVoiceParser(transcript, currentData);
+  }
+
+  applyVoiceParsingResult(parseResult, transcript);
+}
+
+function applyVoiceParsingResult(data, transcript) {
+  const extracted = data.extracted_fields || data.mapped_fields || {};
+  const conflicts = data.proposed_changes || {};
+
+  const conflictBanner = document.getElementById("voice-conflict-banner");
+  const conflictList = document.getElementById("voice-conflict-list");
+  const statusAlert = document.getElementById("voice-status-alert");
+  const statusText = document.getElementById("voice-status-text");
+
+  // Only present conflict if user had manually entered a value that conflicts
+  const realConflicts = {};
+  for (const [k, conf] of Object.entries(conflicts)) {
+    const fieldId = getFieldElementId(k);
+    if (fieldId && userManuallyEditedFields.has(fieldId)) {
+      realConflicts[k] = conf;
+    }
+  }
+
+  const conflictKeys = Object.keys(realConflicts);
+  if (conflictKeys.length > 0) {
+    pendingVoiceConflicts = { conflicts: realConflicts, extracted: extracted };
+    if (conflictBanner && conflictList) {
+      conflictList.innerHTML = conflictKeys.map(k => {
+        return `<div style="margin-bottom: 2px;">• <strong>${formatFieldLabel(k)}:</strong> Current manual value: <code>${realConflicts[k].current}</code> ➔ Spoken voice value: <code>${realConflicts[k].spoken}</code></div>`;
+      }).join("");
+      conflictBanner.style.display = "block";
+    }
+  } else {
+    if (conflictBanner) conflictBanner.style.display = "none";
+  }
+
+  // Populate non-conflicting extracted fields
+  const updatedLabels = [];
+  for (const [k, v] of Object.entries(extracted)) {
+    if (!realConflicts[k]) {
+      const success = setFormFieldValue(k, v);
+      if (success) {
+        updatedLabels.push(formatFieldLabel(k));
+      }
+    }
+  }
+
+  // Display status banner for farmer review (DO NOT auto-submit or auto-calculate!)
+  if (updatedLabels.length > 0 && statusAlert && statusText) {
+    statusText.innerText = `🎙️ ${updatedLabels.length} field(s) populated from voice: [${updatedLabels.join(", ")}]. Please review your inputs and click 'Calculate Transparent Credit Sizing' to submit.`;
+    statusAlert.style.display = "block";
+  }
 }
 
 function speakTextSummary() {
@@ -740,46 +1053,21 @@ function speakTextSummary() {
 
 function initPresetButtons() {
   const chips = document.querySelectorAll(".chip");
+  const presetUtterances = {
+    tomato_nashik: "मेरा नाम रमेश पाटिल है। मैं गाँव पिंपलगांव नासिक से हूँ। मेरे पास 1.5 एकड़ जमीन है और मैं टमाटर उगाता हूँ। ड्रिप सिंचाई है।",
+    chilli_guntur: "నా పేరు సాంబ రావు. గుంటూరులో 2 ఎకరాల మిర్చి సాగు చేస్తున్నాను, డ్రిప్ ఇరిగేషన్.",
+    potato_agra: "मेरा नाम राम नरेश है। आगरा में 2.2 एकड़ आलू की फसल है और नहर से सिंचाई है।",
+    turmeric_salem: "என் பெயர் முருகன். சேலத்தில் 1.8 ஏக்கர் மஞ்சள் பயிரிடுகிறேன், சொட்டு நீர் பாசனம்.",
+    onion_lasalgaon: "माझे नाव सुरेश जाधव आहे। नाशिक लासलगाव येथे 1.2 एकर कांदा पीक आहे। ठिबक सिंचन आहे।"
+  };
+
   chips.forEach(chip => {
     chip.addEventListener("click", () => {
       const preset = chip.getAttribute("data-preset");
-      if (preset === "tomato_nashik") {
-        document.getElementById("input-farmer-name").value = "Ramesh Tukaram Patil";
-        document.getElementById("select-mandi-district").value = "Maharashtra_Nashik";
-        document.getElementById("select-crop").value = "Tomato";
-        document.getElementById("slider-land-acres").value = "1.5";
-        document.getElementById("lbl-acres-val").innerText = "1.5 Acres";
-        document.getElementById("select-irrigation").value = "Drip";
-      } else if (preset === "chilli_guntur") {
-        document.getElementById("input-farmer-name").value = "Samba Siva Rao";
-        document.getElementById("select-mandi-district").value = "Andhra Pradesh_Guntur";
-        document.getElementById("select-crop").value = "Chilli (Dry)";
-        document.getElementById("slider-land-acres").value = "2.0";
-        document.getElementById("lbl-acres-val").innerText = "2.0 Acres";
-        document.getElementById("select-irrigation").value = "Drip";
-      } else if (preset === "potato_agra") {
-        document.getElementById("input-farmer-name").value = "Ram Naresh Yadav";
-        document.getElementById("select-mandi-district").value = "Uttar Pradesh_Agra";
-        document.getElementById("select-crop").value = "Potato";
-        document.getElementById("slider-land-acres").value = "2.2";
-        document.getElementById("lbl-acres-val").innerText = "2.2 Acres";
-        document.getElementById("select-irrigation").value = "Canal";
-      } else if (preset === "turmeric_salem") {
-        document.getElementById("input-farmer-name").value = "Murugan Sengodan";
-        document.getElementById("select-mandi-district").value = "Tamil Nadu_Salem";
-        document.getElementById("select-crop").value = "Turmeric";
-        document.getElementById("slider-land-acres").value = "1.8";
-        document.getElementById("lbl-acres-val").innerText = "1.8 Acres";
-        document.getElementById("select-irrigation").value = "Drip";
-      } else if (preset === "onion_lasalgaon") {
-        document.getElementById("input-farmer-name").value = "Suresh Balasaheb Jadhav";
-        document.getElementById("select-mandi-district").value = "Maharashtra_Nashik";
-        document.getElementById("select-crop").value = "Onion";
-        document.getElementById("slider-land-acres").value = "1.2";
-        document.getElementById("lbl-acres-val").innerText = "1.2 Acres";
-        document.getElementById("select-irrigation").value = "Drip";
+      const utterance = presetUtterances[preset];
+      if (utterance) {
+        processVoiceTranscript(utterance);
       }
-      calculateCreditProfile();
     });
   });
 }

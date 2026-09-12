@@ -40,7 +40,8 @@ async def parse_spoken_transcript(request: VoiceParseRequest):
     try:
         parsed = VoiceNLPService.parse_transcript_to_fields(
             transcript=request.transcript,
-            lang_code=request.lang_code
+            lang_code=request.lang_code,
+            current_data=request.current_data
         )
         return parsed
     except Exception as e:
@@ -63,10 +64,23 @@ async def transcribe_audio_file(
     try:
         content = await file.read()
         transcription_res = VoiceNLPService.transcribe_audio_bytes(content, lang_code)
-        parsed_fields = VoiceNLPService.parse_transcript_to_fields(
-            transcript=transcription_res["raw_transcript"],
-            lang_code=lang_code
-        )
+        if transcription_res.get("success") and transcription_res.get("raw_transcript"):
+            parsed_fields = VoiceNLPService.parse_transcript_to_fields(
+                transcript=transcription_res["raw_transcript"],
+                lang_code=lang_code
+            )
+        else:
+            parsed_fields = {
+                "mapped_fields": {},
+                "extracted_fields": {},
+                "proposed_changes": {},
+                "confidence_scores": {},
+                "missing_fields": ["crop", "acres", "district", "yield", "costs"],
+                "clarifications": [transcription_res.get("error", "Speech could not be understood.")],
+                "contradictions": [],
+                "raw_transcript": "",
+                "requires_review": True
+            }
         return {
             "file_name": file.filename,
             "transcription": transcription_res,
@@ -79,3 +93,4 @@ async def transcribe_audio_file(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Audio transcription failed: {str(e)}"
         )
+
