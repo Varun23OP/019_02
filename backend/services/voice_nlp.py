@@ -553,7 +553,8 @@ class VoiceNLPService:
         transcript: str,
         lang_code: str = "hi",
         current_data: Optional[Dict[str, Any]] = None,
-        target_field: Optional[str] = None
+        target_field: Optional[str] = None,
+        **kwargs
     ) -> Dict[str, Any]:
         """
         Extract verified agronomic entities from spoken/typed transcript across 11 Indian languages.
