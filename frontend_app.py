@@ -617,6 +617,178 @@ def get_unassigned_farmers():
         return []
 
 
+def get_lender_applications(status: Optional[str] = None):
+    """Fetch live loan applications from backend with SQLite local fallback."""
+    if backend_connected:
+        try:
+            params = {"status": status} if status else {}
+            res = requests.get(f"{API_BASE}/lenders/applications", params=params, timeout=2.5)
+            if res.status_code == 200:
+                return res.json()
+        except Exception:
+            pass
+    try:
+        from backend.database import SessionLocal
+        from backend.models import CreditAssessment, Farmer, PeerGroupMember, PeerGroup, CropVerification
+        db = SessionLocal()
+        query = db.query(CreditAssessment)
+        if status:
+            query = query.filter(CreditAssessment.status == status.upper())
+        assessments = query.order_by(CreditAssessment.id.desc()).all()
+        results = []
+        for a in assessments:
+            farmer = db.query(Farmer).filter(Farmer.id == a.farmer_id).first()
+            group_member = db.query(PeerGroupMember).filter(PeerGroupMember.farmer_id == a.farmer_id).first()
+            fpo_group_code = "GRP-SAHYADRI-01"
+            if group_member:
+                grp = db.query(PeerGroup).filter(PeerGroup.id == group_member.group_id).first()
+                if grp:
+                    fpo_group_code = grp.group_code
+
+            ver = db.query(CropVerification).filter(CropVerification.farmer_id == a.farmer_id).order_by(CropVerification.id.desc()).first()
+            crop_verification_status = ver.verification_status if ver else "VERIFIED_BY_PEERS"
+
+            results.append({
+                "assessment_id": a.id,
+                "farmer_id": a.farmer_id,
+                "farmer_name": farmer.name if farmer else f"Farmer #{a.farmer_id}",
+                "phone": farmer.phone if farmer else "N/A",
+                "village": farmer.village if farmer else "Pimpalgaon",
+                "district": farmer.district if farmer else "Nashik",
+                "crop_name": a.crop_name or "Tomato (Horticulture)",
+                "acres": a.acres or (farmer.land_size_acres if farmer else 2.0),
+                "projected_yield": a.projected_yield or 18.0,
+                "mandi_price_per_qtl": a.mandi_price_per_qtl or 2250.0,
+                "gross_revenue": a.gross_revenue or 81000.0,
+                "total_expenses": a.total_expenses or 24000.0,
+                "net_profit": a.net_profit or 57000.0,
+                "credit_score": a.credit_score,
+                "sanctioned_limit": a.loan_eligibility_amount,
+                "risk_category": a.risk_category,
+                "pmfby_insured": a.pmfby_insured,
+                "social_collateral": "3/3 Verified FPO Pool",
+                "peer_group_code": fpo_group_code,
+                "crop_verification": crop_verification_status,
+                "bullet_repayment_date": a.bullet_repayment_date.strftime("%d-%b-%Y") if a.bullet_repayment_date else "12-Jan-2027",
+                "status": a.status or "PENDING_REVIEW",
+                "lender_notes": a.lender_notes,
+                "disbursement_tx_id": a.disbursement_tx_id,
+                "disbursed_at": a.disbursed_at.strftime("%Y-%m-%d %H:%M") if a.disbursed_at else None,
+                "assessment_date": a.assessment_date.strftime("%Y-%m-%d %H:%M") if a.assessment_date else ""
+            })
+        db.close()
+        return results
+    except Exception:
+        return []
+
+
+def execute_lender_decision(assessment_id: int, decision: str, lender_notes: str = ""):
+    """Submit lender decision to backend or fallback SQLite database with strict validation."""
+    if backend_connected:
+        try:
+            res = requests.post(
+                f"{API_BASE}/lenders/applications/{assessment_id}/decision",
+                json={"decision": decision, "lender_notes": lender_notes},
+                timeout=2.5
+            )
+            if res.status_code == 200:
+                data = res.json()
+                return True, data.get("message", f"Loan #{assessment_id} successfully {decision}."), data
+            else:
+                err_detail = res.json().get("detail", f"Backend rejected request (HTTP {res.status_code})")
+                return False, err_detail, None
+        except Exception as e:
+            return False, f"Backend connection error: {str(e)}", None
+
+    try:
+        from backend.database import SessionLocal
+        from backend.models import CreditAssessment
+        db = SessionLocal()
+        assessment = db.query(CreditAssessment).filter(CreditAssessment.id == assessment_id).first()
+        if not assessment:
+            db.close()
+            return False, f"Loan assessment #{assessment_id} not found in database.", None
+
+        if assessment.status == decision:
+            db.close()
+            return False, f"Loan application #{assessment_id} is already {assessment.status}.", None
+
+        if assessment.status == "DISBURSED":
+            db.close()
+            return False, f"Cannot change decision on loan #{assessment_id}: funds have already been disbursed.", None
+
+        if assessment.status == "REJECTED":
+            db.close()
+            return False, f"Loan #{assessment_id} was REJECTED and cannot be modified.", None
+
+        if assessment.status != "PENDING_REVIEW":
+            db.close()
+            return False, f"Cannot decision loan #{assessment_id}: current status is {assessment.status}. Expected PENDING_REVIEW.", None
+
+        assessment.status = decision
+        if lender_notes:
+            assessment.lender_notes = lender_notes
+        db.commit()
+        db.close()
+        return True, f"Loan #{assessment_id} successfully updated to {decision}.", {"status": decision}
+    except Exception as e:
+        return False, f"Database operation failed: {str(e)}", None
+
+
+def execute_lender_disbursement(assessment_id: int):
+    """Execute simulated disbursement to backend or fallback SQLite database."""
+    if backend_connected:
+        try:
+            res = requests.post(f"{API_BASE}/lenders/applications/{assessment_id}/disburse", timeout=2.5)
+            if res.status_code == 200:
+                data = res.json()
+                return True, data.get("message", "Disbursement recorded."), data
+            else:
+                err_detail = res.json().get("detail", f"Disbursement blocked (HTTP {res.status_code})")
+                return False, err_detail, None
+        except Exception as e:
+            return False, f"Backend connection error: {str(e)}", None
+
+    try:
+        from backend.database import SessionLocal
+        from backend.models import CreditAssessment
+        import time
+        from datetime import datetime
+        db = SessionLocal()
+        assessment = db.query(CreditAssessment).filter(CreditAssessment.id == assessment_id).first()
+        if not assessment:
+            db.close()
+            return False, f"Loan assessment #{assessment_id} not found in database.", None
+
+        if assessment.status == "DISBURSED":
+            db.close()
+            return False, f"Loan #{assessment_id} has already been disbursed. Duplicate disbursement prevented.", None
+
+        if assessment.status == "PENDING_REVIEW":
+            db.close()
+            return False, f"Cannot disburse loan #{assessment_id}: application is PENDING_REVIEW. Must be SANCTIONED first.", None
+
+        if assessment.status == "REJECTED":
+            db.close()
+            return False, f"Cannot disburse loan #{assessment_id}: application was REJECTED.", None
+
+        if assessment.status != "SANCTIONED":
+            db.close()
+            return False, f"Cannot disburse loan #{assessment_id}: status is {assessment.status}. Only SANCTIONED loans can be disbursed.", None
+
+        now = datetime.utcnow()
+        tx_id = f"SIM-eRUPI-AGRI-{assessment.id}-{int(time.time())}"
+        assessment.status = "DISBURSED"
+        assessment.disbursement_tx_id = tx_id
+        assessment.disbursed_at = now
+        amt = assessment.loan_eligibility_amount
+        db.commit()
+        db.close()
+        return True, f"₹{amt:,.0f} simulated disbursement recorded via e-RUPI sandbox voucher (Demo rail).", {"status": "DISBURSED", "disbursement_tx_id": tx_id}
+    except Exception as e:
+        return False, f"Database operation failed: {str(e)}", None
+
+
 st.title(T["title"])
 st.caption(T["tagline"])
 
@@ -1595,115 +1767,185 @@ with tab3:
     st.subheader("🏦 Rural Bank & NBFC Portfolio Underwriting Console")
     st.markdown("Direct visibility into uncollateralized smallholder loans qualified under **RBI Priority Sector Lending (PSL)**.")
 
+    all_apps = get_lender_applications()
+    pending_apps = [a for a in all_apps if a.get("status") == "PENDING_REVIEW"]
+    sanctioned_apps = [a for a in all_apps if a.get("status") == "SANCTIONED"]
+    disbursed_apps = [a for a in all_apps if a.get("status") == "DISBURSED"]
+    rejected_apps = [a for a in all_apps if a.get("status") == "REJECTED"]
+
+    total_sanctioned_val = sum(a.get("sanctioned_limit", 0.0) for a in (sanctioned_apps + disbursed_apps))
+    total_disbursed_val = sum(a.get("sanctioned_limit", 0.0) for a in disbursed_apps)
+
     k1, k2, k3, k4 = st.columns(4)
-    k1.metric("Active Guarantee Pools", "18 Pools (54 Farmers)", "3-Peer Social Collateral")
-    k2.metric("Portfolio Repayment Rate", "82.4%", "Target: 78.0%")
-    k3.metric("Underwriting SLA", "3.8 Hours", "vs 45 Days Traditional")
-    k4.metric("PSL Qualification", "100% Eligible", "RBI Direct Agri PSL")
+    k1.metric("Pending Review Queue", f"{len(pending_apps)} Applications", "Action Required" if pending_apps else "Up to date")
+    k2.metric("Total Sanctioned Capital", f"₹{total_sanctioned_val:,.0f}", f"{len(sanctioned_apps)} Awaiting Disbursal")
+    k3.metric("Simulated Disbursed", f"₹{total_disbursed_val:,.0f}", f"{len(disbursed_apps)} Vouchers Issued")
+    k4.metric("PSL Compliance", "100% Eligible", "RBI Direct Agri PSL")
 
-    # Live Applications Queue
-    st.write("### 📋 Smallholder Loan Sanctions Queue")
-    
-    apps_list = []
-    if backend_connected:
-        try:
-            res_apps = requests.get(f"{API_BASE}/lenders/applications", timeout=1.5)
-            if res_apps.status_code == 200:
-                apps_list = res_apps.json()
-        except Exception:
-            apps_list = []
+    st.markdown("---")
 
-    if not apps_list:
-        apps_list = [
-            {
-                "assessment_id": 101,
-                "farmer_id": 1,
-                "farmer_name": "Ramesh Patel",
-                "crop_name": "Tomato (Horticulture)",
-                "acres": 2.0,
-                "projected_yield": 18.0,
-                "mandi_price_per_qtl": 2250.0,
-                "sanctioned_limit": 25650.0,
-                "credit_score": 85,
-                "risk_category": "Tier-1 Low Risk",
-                "social_collateral": "3/3 Verified FPO Pool",
-                "crop_verification": "VERIFIED",
-                "bullet_repayment_date": (datetime.now() + timedelta(days=140)).strftime("%d-%b-%Y"),
-                "status": "PENDING_REVIEW"
-            },
-            {
-                "assessment_id": 102,
-                "farmer_id": 2,
-                "farmer_name": "Geeta Devi",
-                "crop_name": "Soybean",
-                "acres": 1.5,
-                "projected_yield": 9.5,
-                "mandi_price_per_qtl": 4720.0,
-                "sanctioned_limit": 20817.0,
-                "credit_score": 82,
-                "risk_category": "Tier-1 Low Risk",
-                "social_collateral": "3/3 Verified FPO Pool",
-                "crop_verification": "VERIFIED",
-                "bullet_repayment_date": (datetime.now() + timedelta(days=125)).strftime("%d-%b-%Y"),
-                "status": "SANCTIONED"
-            }
-        ]
+    lender_tab1, lender_tab2, lender_tab3, lender_tab4 = st.tabs([
+        f"⏳ Pending Review ({len(pending_apps)})",
+        f"✅ Sanctioned Loans ({len(sanctioned_apps)})",
+        f"💳 Disbursed Vouchers ({len(disbursed_apps)})",
+        f"🚫 Rejected Archive ({len(rejected_apps)})"
+    ])
 
-    for app in apps_list:
-        with st.expander(f"👨‍🌾 #{app['assessment_id']} — {app['farmer_name']} | {app['crop_name']} ({app['acres']} Acres) | Limit: ₹{app['sanctioned_limit']:,.0f} | Status: {app['status']}", expanded=True):
-            col_d1, col_d2, col_d3 = st.columns(3)
-            with col_d1:
-                st.markdown(f"**Credit Score:** `{app['credit_score']} / 100` ({app.get('risk_category', 'Tier-1')})")
-                st.markdown(f"**Daily AGMARKNET Price:** ₹{app.get('mandi_price_per_qtl', 2250):,.0f}/qtl")
-                st.markdown(f"**Expected Yield:** {app.get('projected_yield', 18)} qtl/acre")
-            with col_d2:
-                st.markdown(f"**Social Collateral:** `{app.get('social_collateral', '3/3 Verified')}`")
-                st.markdown(f"**Field Crop Verification:** `{app.get('crop_verification', 'VERIFIED')}`")
-                st.markdown(f"**PMFBY Insured:** `{'Yes (Active)' if app.get('pmfby_insured', True) else 'Pending'}`")
-            with col_d3:
-                st.markdown(f"**Repayment Model:** Single Bullet (0 EMI)")
-                st.markdown(f"**Bullet Due Date:** `{app.get('bullet_repayment_date', '15-Jan-2027')}`")
-                st.markdown(f"**Current Status:** `{app['status']}`")
+    # 1. PENDING REVIEW QUEUE (Strictly only PENDING_REVIEW loans)
+    with lender_tab1:
+        st.write("### ⏳ Smallholder Loan Applications Pending Underwriting Review")
+        st.caption("Review agronomic cashflow, daily AGMARKNET mandi modal prices, and 3-peer FPO social guarantees.")
 
-            # Lender Actions
-            b_col1, b_col2, b_col3 = st.columns(3)
-            with b_col1:
-                if st.button(f"✅ Sanction Loan #{app['assessment_id']}", key=f"sanction_{app['assessment_id']}"):
-                    if backend_connected:
-                        try:
-                            requests.post(
-                                f"{API_BASE}/lenders/applications/{app['assessment_id']}/decision",
-                                json={"decision": "SANCTIONED", "lender_notes": "Sanctioned under Priority Sector Lending."},
-                                timeout=1.5
+        if not pending_apps:
+            st.info("✅ All submitted applications have been processed. No smallholder loans pending review.")
+        else:
+            for app in pending_apps:
+                with st.expander(f"👨‍🌾 #{app['assessment_id']} — {app['farmer_name']} | {app['crop_name']} ({app['acres']} Acres) | Limit: ₹{app['sanctioned_limit']:,.0f} | Status: PENDING_REVIEW", expanded=True):
+                    col_d1, col_d2, col_d3 = st.columns(3)
+                    with col_d1:
+                        st.markdown(f"**Borrower:** {app['farmer_name']} (Phone: `{app.get('phone', 'N/A')}`)")
+                        st.markdown(f"**Location:** {app.get('village', 'Pimpalgaon')}, {app.get('district', 'Nashik')}")
+                        st.markdown(f"**Credit Score:** `{app['credit_score']} / 100` ({app.get('risk_category', 'Tier-1')})")
+                    with col_d2:
+                        st.markdown(f"**Daily AGMARKNET Price:** ₹{app.get('mandi_price_per_qtl', 2250):,.0f}/qtl")
+                        st.markdown(f"**Expected Yield:** {app.get('projected_yield', 18)} qtl/acre")
+                        st.markdown(f"**Social Collateral:** `{app.get('social_collateral', '3/3 Verified')}` ({app.get('peer_group_code', 'GRP-SAHYADRI-01')})")
+                    with col_d3:
+                        st.markdown(f"**Repayment Model:** Single Harvest Bullet (0 Monthly EMI)")
+                        st.markdown(f"**Bullet Due Date:** `{app.get('bullet_repayment_date', '15-Jan-2027')}`")
+                        st.markdown(f"**Field Verification:** `{app.get('crop_verification', 'VERIFIED')}`")
+
+                    st.markdown("---")
+                    # Actions: Only Sanction and Reject are allowed. Disburse is NOT permitted for PENDING_REVIEW loans.
+                    b_col1, b_col2 = st.columns(2)
+                    with b_col1:
+                        with st.popover(f"✅ Sanction Loan #{app['assessment_id']}", use_container_width=True):
+                            st.markdown(f"#### Confirm Sanction for #{app['assessment_id']}")
+                            st.markdown(f"**Farmer:** {app['farmer_name']} ({app.get('village', '')}, {app.get('district', '')})")
+                            st.markdown(f"**Approved Limit:** `₹{app['sanctioned_limit']:,.0f}`")
+                            st.markdown(f"**Bullet Repayment Due:** `{app['bullet_repayment_date']}`")
+                            s_notes = st.text_input(
+                                "Lender Audit Notes:",
+                                value="Sanctioned under Priority Sector Lending. Crop verified by FPO coordinator.",
+                                key=f"s_notes_{app['assessment_id']}"
                             )
-                        except Exception:
-                            pass
-                    st.success(f"Loan #{app['assessment_id']} Sanctioned!")
-                    st.rerun()
+                            if st.button(f"Confirm & Sanction #{app['assessment_id']}", key=f"btn_sanc_{app['assessment_id']}", type="primary", use_container_width=True):
+                                with st.spinner("Recording sanction in database..."):
+                                    ok, msg, res = execute_lender_decision(app['assessment_id'], "SANCTIONED", s_notes)
+                                    if ok:
+                                        st.success(msg)
+                                        time.sleep(0.4)
+                                        st.rerun()
+                                    else:
+                                        st.error(f"Sanction Failed: {msg}")
 
-            with b_col2:
-                if st.button(f"❌ Reject Loan #{app['assessment_id']}", key=f"reject_{app['assessment_id']}"):
-                    if backend_connected:
-                        try:
-                            requests.post(
-                                f"{API_BASE}/lenders/applications/{app['assessment_id']}/decision",
-                                json={"decision": "REJECTED", "lender_notes": "Insufficient agronomic margin."},
-                                timeout=1.5
+                    with b_col2:
+                        with st.popover(f"❌ Reject Loan #{app['assessment_id']}", use_container_width=True):
+                            st.markdown(f"#### Confirm Rejection for #{app['assessment_id']}")
+                            st.markdown(f"**Farmer:** {app['farmer_name']}")
+                            st.markdown(f"**Limit Requested:** `₹{app['sanctioned_limit']:,.0f}`")
+                            r_notes = st.text_input(
+                                "Rejection Rationale:",
+                                value="Insufficient agronomic cashflow margin / high production risk.",
+                                key=f"r_notes_{app['assessment_id']}"
                             )
-                        except Exception:
-                            pass
-                    st.error(f"Loan #{app['assessment_id']} Rejected.")
-                    st.rerun()
+                            if st.button(f"Confirm Rejection #{app['assessment_id']}", key=f"btn_rej_{app['assessment_id']}", type="primary", use_container_width=True):
+                                with st.spinner("Recording rejection in database..."):
+                                    ok, msg, res = execute_lender_decision(app['assessment_id'], "REJECTED", r_notes)
+                                    if ok:
+                                        st.warning(msg)
+                                        time.sleep(0.4)
+                                        st.rerun()
+                                    else:
+                                        st.error(f"Rejection Failed: {msg}")
 
-            with b_col3:
-                if st.button(f"⚡ Disburse e-RUPI Voucher #{app['assessment_id']}", key=f"disburse_{app['assessment_id']}", type="primary"):
-                    if backend_connected:
-                        try:
-                            requests.post(f"{API_BASE}/lenders/applications/{app['assessment_id']}/disburse", timeout=1.5)
-                        except Exception:
-                            pass
-                    st.success(f"Disbursed ₹{app['sanctioned_limit']:,.0f} via e-RUPI Voucher!")
-                    st.rerun()
+    # 2. SANCTIONED LOANS (Ready for Disbursement)
+    with lender_tab2:
+        st.write("### ✅ Sanctioned Loans Awaiting Voucher Disbursement")
+        st.info(
+            "ℹ️ **Simulated Disbursement Rail**: KisanSetu issues simulated purpose-bound NPCI e-RUPI vouchers locked to agricultural input merchants (MCCs 5261/5193). "
+            "This is a demonstration environment; no real fiat money is transferred."
+        )
+
+        if not sanctioned_apps:
+            st.info("No sanctioned loans awaiting disbursement.")
+        else:
+            for app in sanctioned_apps:
+                with st.expander(f"🌾 #{app['assessment_id']} — {app['farmer_name']} | {app['crop_name']} | Sanctioned Limit: ₹{app['sanctioned_limit']:,.0f} | Status: SANCTIONED", expanded=True):
+                    col_s1, col_s2, col_s3 = st.columns(3)
+                    with col_s1:
+                        st.markdown(f"**Borrower:** {app['farmer_name']} (Phone: `{app.get('phone', 'N/A')}`)")
+                        st.markdown(f"**Location:** {app.get('village', 'Pimpalgaon')}, {app.get('district', 'Nashik')}")
+                        st.markdown(f"**Sanctioned Amount:** `₹{app['sanctioned_limit']:,.0f}`")
+                    with col_s2:
+                        st.markdown(f"**Credit Score:** `{app['credit_score']} / 100` ({app.get('risk_category', 'Tier-1')})")
+                        st.markdown(f"**Bullet Repayment Due:** `{app.get('bullet_repayment_date', '15-Jan-2027')}`")
+                        st.markdown(f"**Peer Guarantee:** `{app.get('peer_group_code', 'GRP-SAHYADRI-01')}`")
+                    with col_s3:
+                        st.markdown(f"**Lender Audit Notes:**")
+                        st.caption(f"_{app.get('lender_notes') or 'Sanctioned under PSL'}_")
+
+                    st.markdown("---")
+                    # Action: Only Disburse is allowed. Sanction and Reject are hidden.
+                    with st.popover(f"⚡ Disburse e-RUPI Voucher #{app['assessment_id']}", use_container_width=True):
+                        st.markdown(f"#### Execute Simulated Disbursement for #{app['assessment_id']}")
+                        st.markdown(f"**Beneficiary:** {app['farmer_name']} (Phone: `{app.get('phone', 'N/A')}`)")
+                        st.markdown(f"**Sanctioned Amount:** `₹{app['sanctioned_limit']:,.0f}`")
+                        st.markdown(f"**Disbursement Channel:** Simulated NPCI e-RUPI Purpose-Bound Agro-Voucher")
+                        st.caption("⚠️ Notice: This is a **simulated demonstration**. No real financial funds will be transferred.")
+                        if st.button(f"Confirm Simulated Disbursal #{app['assessment_id']}", key=f"btn_disb_{app['assessment_id']}", type="primary", use_container_width=True):
+                            with st.spinner("Generating e-RUPI sandbox voucher and updating database..."):
+                                ok, msg, res = execute_lender_disbursement(app['assessment_id'])
+                                if ok:
+                                    st.success(msg)
+                                    time.sleep(0.4)
+                                    st.rerun()
+                                else:
+                                    st.error(f"Disbursement Failed: {msg}")
+
+    # 3. DISBURSED LOANS ARCHIVE
+    with lender_tab3:
+        st.write("### 💳 Disbursed Loans & Active Harvest Credit Book")
+        st.caption("Disbursed agricultural capital with simulated transaction hashes and harvest bullet repayment schedules.")
+
+        if not disbursed_apps:
+            st.info("No loans disbursed yet.")
+        else:
+            for app in disbursed_apps:
+                with st.expander(f"💳 #{app['assessment_id']} — {app['farmer_name']} | Disbursed: ₹{app['sanctioned_limit']:,.0f} | Status: DISBURSED", expanded=False):
+                    cd1, cd2, cd3 = st.columns(3)
+                    with cd1:
+                        st.markdown(f"**Beneficiary:** {app['farmer_name']}")
+                        st.markdown(f"**Disbursed Amount:** `₹{app['sanctioned_limit']:,.0f}`")
+                        st.markdown(f"**Disbursement Tx ID:** `{app.get('disbursement_tx_id') or 'SIM-eRUPI-TX'}`")
+                    with cd2:
+                        st.markdown(f"**Disbursement Mode:** Simulated e-RUPI Voucher")
+                        st.markdown(f"**Disbursed At:** `{app.get('disbursed_at') or 'Recorded'}`")
+                        st.markdown(f"**Bullet Repayment Due:** `{app.get('bullet_repayment_date')}`")
+                    with cd3:
+                        st.markdown(f"**Guarantee Circle:** `{app.get('peer_group_code', 'GRP-SAHYADRI-01')}`")
+                        st.markdown(f"**Crop:** {app.get('crop_name')} ({app.get('acres')} Ac)")
+                        st.markdown(f"**Credit Score:** `{app.get('credit_score')} / 100`")
+
+    # 4. REJECTED ARCHIVE
+    with lender_tab4:
+        st.write("### 🚫 Rejected Smallholder Loan Applications")
+        st.caption("Archived applications that did not meet credit or agronomic margin criteria.")
+
+        if not rejected_apps:
+            st.info("No rejected applications on record.")
+        else:
+            for app in rejected_apps:
+                with st.expander(f"🚫 #{app['assessment_id']} — {app['farmer_name']} | Requested Limit: ₹{app['sanctioned_limit']:,.0f} | Status: REJECTED", expanded=False):
+                    cr1, cr2 = st.columns(2)
+                    with cr1:
+                        st.markdown(f"**Applicant:** {app['farmer_name']} ({app.get('village', 'Pimpalgaon')}, {app.get('district', 'Nashik')})")
+                        st.markdown(f"**Crop & Acreage:** {app.get('crop_name')} ({app.get('acres')} Acres)")
+                        st.markdown(f"**Credit Score:** `{app.get('credit_score')} / 100`")
+                    with cr2:
+                        st.markdown(f"**Rejection Rationale:**")
+                        st.error(f"_{app.get('lender_notes') or 'Insufficient margin.'}_")
+                        st.caption(f"Assessment Date: {app.get('assessment_date') or 'N/A'}")
 
     # Mandi Price Stability & Trend Monitoring
     st.markdown("---")

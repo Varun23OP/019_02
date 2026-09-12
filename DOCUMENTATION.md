@@ -315,6 +315,23 @@ To prevent loan leakage and fund diversion:
 * **Merchant Category Code (MCC) Enforcement**: Vouchers are cryptographically locked to certified agricultural input dealers (MCC 5193: Seed and Agricultural Supplies; MCC 5191: Fertilizer Dealers).
 * Delivered via simple SMS string or QR code to the farmer's feature phone without requiring internet banking or smartphone apps.
 
+### 7.3 Strict Loan Sanction, Rejection & Simulated Disbursement State Machine
+To ensure financial auditing compliance and prevent unauthorized disbursement:
+1. **Deterministic State Machine**:
+   * `PENDING_REVIEW -> SANCTIONED`: Credit officers inspect agronomic parameters and approve smallholder limit. Immediately moves from pending queue to sanctioned queue.
+   * `PENDING_REVIEW -> REJECTED`: Applications failing viability criteria are rejected with audit rationale and moved to rejected archive.
+   * `SANCTIONED -> DISBURSED`: Disbursal is permitted strictly after sanctioning. Persists transaction ID (`SIM-eRUPI-AGRI-{id}-{timestamp}`) and UTC timestamp.
+2. **Strict Invariant Guards**:
+   * **Pending loans cannot be disbursed**: `POST /disburse` on a `PENDING_REVIEW` loan is blocked (`HTTP 400 Bad Request`).
+   * **Rejected loans cannot be sanctioned or disbursed**: Blocked (`HTTP 400 Bad Request`).
+   * **Duplicate actions blocked**: Repeated clicks on sanction or disbursement return `HTTP 400 Bad Request`.
+3. **Simulated Disbursement Demarcation**:
+   * Clearly labeled as **Simulated NPCI e-RUPI Purpose-Bound Agricultural Voucher (Sandbox/Demo)**. Explicitly demarcates that no real fiat funds are transferred.
+4. **UI Cockpit Architecture**:
+   * Segregated into 4 real-time tabs: `⏳ Pending Review`, `✅ Sanctioned Loans`, `💳 Disbursed Vouchers`, and `🚫 Rejected Archive`.
+   * **Disburse button is hidden/disabled** for `PENDING_REVIEW` loans.
+   * Two-step confirmation popovers with audit notes prevent accidental triggers.
+
 ---
 
 ## 8. Cryptographic Identity (W3C DID/VC) & GDPR/DPDPA Data Privacy
@@ -437,6 +454,23 @@ python test_farmer_fpo_integration.py
 ```
 **Result**: `100% PASS (All 10 Verification Checks Passed Successfully)`.
 
+### 11.4 Rural Lender Workflow Verification Suite (`test_lender_workflow.py`)
+Validates all 8 loan sanction, rejection, and disbursement rules:
+* **Check 1**: Reject a pending loan -> status transitions to `REJECTED` in database and disappears from pending review queue.
+* **Check 2**: Sanction a pending loan -> status transitions to `SANCTIONED` in database and disappears from pending review queue.
+* **Check 3**: Attempt to disburse a pending loan -> action blocked with HTTP `400 Bad Request`.
+* **Check 4**: Attempt to disburse or sanction a rejected loan -> blocked with HTTP `400 Bad Request`.
+* **Check 5**: Disburse a sanctioned loan -> status transitions to `DISBURSED`, transaction ID (`SIM-eRUPI-AGRI-...`) and timestamp saved, appears in disbursed archive.
+* **Check 6**: Database session refresh verification: statuses and audit logs remain permanently persisted.
+* **Check 7**: Failure simulation on non-existent loans or network timeouts -> returns HTTP 404/400 without false success.
+* **Check 8**: Repeated clicks -> duplicate sanction or disbursement blocked with HTTP `400 Bad Request`.
+
+**Execution Command**:
+```bash
+python test_lender_workflow.py
+```
+**Result**: `100% PASS (All 8 Verification Checks Passed Successfully)`.
+
 ---
 
 ## 12. Complete API Endpoints Specification
@@ -492,8 +526,9 @@ All core capabilities and architectural requirements have been verified via end-
   [PASS] Module 7: W3C Decentralized Identity & Verifiable Credentials Verification
   [PASS] Module 8: GDPR/DPDP Consent, Portable Dossier Export & Anonymization
   [PASS] Module 9: Farmer Intake <-> FPO Guarantee Pool Integration (10/10 Passed)
+  [PASS] Module 10: Rural Lender Sanction, Rejection & Disbursement State Machine (8/8 Passed)
 ================================================================================
-  RESULT: 9/9 Test Suites PASSED (100% Success Rate)
+  RESULT: 10/10 Test Suites PASSED (100% Success Rate)
 ================================================================================
 ```
 

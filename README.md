@@ -109,6 +109,11 @@ python test_e2e_journey.py
 python test_farmer_fpo_integration.py
 ```
 
+### 4. Rural Lender Sanction, Rejection & Disbursement Test (8 Verification Checks)
+```bash
+python test_lender_workflow.py
+```
+
 ---
 
 ## Cloud Deployment Guide
@@ -257,6 +262,7 @@ The repository includes a GitHub Actions workflow (`.github/workflows/pages.yml`
 ├── frontend_app.py              # Streamlit multi-role reactive console (11 languages)
 ├── test_e2e_journey.py          # End-to-end 9-step verification script with edge cases
 ├── test_farmer_fpo_integration.py # 10-stage farmer intake to FPO guarantee pool integration test
+├── test_lender_workflow.py      # 8-check rural lender sanction, rejection & disbursement test
 ├── PRD_FEATURE_AUDIT.md         # Full PRD checklist audit matrix
 ├── SYSTEM_ARCHITECTURE_AND_SCALING.md # 10k voice calls, 99.5% uptime, 5M farmers scaling blueprint
 ├── .env.example                 # Environment variables template

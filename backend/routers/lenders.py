@@ -29,18 +29,34 @@ async def get_lender_dashboard_metrics(db: Session = Depends(get_db)):
     """
     total_farmers = db.query(Farmer).count()
     total_assessments = db.query(CreditAssessment).count()
+    
+    pending_count = db.query(CreditAssessment).filter(CreditAssessment.status == "PENDING_REVIEW").count()
+    sanctioned_count = db.query(CreditAssessment).filter(CreditAssessment.status == "SANCTIONED").count()
+    disbursed_count = db.query(CreditAssessment).filter(CreditAssessment.status == "DISBURSED").count()
+    rejected_count = db.query(CreditAssessment).filter(CreditAssessment.status == "REJECTED").count()
+
     sanctioned_assessments = db.query(CreditAssessment).filter(
         CreditAssessment.status.in_(["SANCTIONED", "DISBURSED"])
     ).all()
+    disbursed_assessments = db.query(CreditAssessment).filter(
+        CreditAssessment.status == "DISBURSED"
+    ).all()
 
     total_sanctioned_amount = sum(a.loan_eligibility_amount for a in sanctioned_assessments)
+    total_disbursed_amount = sum(a.loan_eligibility_amount for a in disbursed_assessments)
     total_pools = db.query(PeerGroup).count() or 18  # Base network pools
 
     return {
         "portfolio_summary": {
             "active_guarantee_pools": total_pools,
             "total_onboarded_farmers": max(total_farmers, 54),
+            "total_assessments_count": total_assessments,
+            "pending_review_count": pending_count,
+            "sanctioned_count": sanctioned_count,
+            "disbursed_count": disbursed_count,
+            "rejected_count": rejected_count,
             "total_sanctioned_capital_inr": round(total_sanctioned_amount if total_sanctioned_amount > 0 else 82540.0, 2),
+            "total_disbursed_capital_inr": round(total_disbursed_amount, 2),
             "portfolio_repayment_rate_pct": 82.4,
             "repayment_target_benchmark_pct": 78.0,
             "avg_underwriting_sla_hours": 3.8,
@@ -57,12 +73,19 @@ async def get_lender_dashboard_metrics(db: Session = Depends(get_db)):
 
 
 @router.get("/applications")
-async def list_lender_applications(db: Session = Depends(get_db)):
+async def list_lender_applications(
+    status: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
     """
     List all pending and historical farmer loan applications with agronomic data,
     FPO social collateral verification, credit score, and harvest bullet schedule.
+    Optionally filter by status (e.g. PENDING_REVIEW, SANCTIONED, DISBURSED, REJECTED).
     """
-    assessments = db.query(CreditAssessment).order_by(CreditAssessment.id.desc()).all()
+    query = db.query(CreditAssessment)
+    if status:
+        query = query.filter(CreditAssessment.status == status.upper())
+    assessments = query.order_by(CreditAssessment.id.desc()).all()
     results = []
 
     for a in assessments:
@@ -101,64 +124,10 @@ async def list_lender_applications(db: Session = Depends(get_db)):
             "bullet_repayment_date": a.bullet_repayment_date.strftime("%d-%b-%Y") if a.bullet_repayment_date else "12-Jan-2027",
             "status": a.status or "PENDING_REVIEW",
             "lender_notes": a.lender_notes,
+            "disbursement_tx_id": a.disbursement_tx_id,
+            "disbursed_at": a.disbursed_at.strftime("%Y-%m-%d %H:%M") if a.disbursed_at else None,
             "assessment_date": a.assessment_date.strftime("%Y-%m-%d %H:%M")
         })
-
-    if not results:
-        results = [
-            {
-                "assessment_id": 101,
-                "farmer_id": 1,
-                "farmer_name": "Ramesh Patel",
-                "phone": "9876543210",
-                "village": "Pimpalgaon",
-                "district": "Nashik",
-                "crop_name": "Tomato (Horticulture)",
-                "acres": 2.0,
-                "projected_yield": 18.0,
-                "mandi_price_per_qtl": 2250.0,
-                "gross_revenue": 81000.0,
-                "total_expenses": 24000.0,
-                "net_profit": 57000.0,
-                "credit_score": 85,
-                "sanctioned_limit": 25650.0,
-                "risk_category": "Tier-1 Low Risk (Preferred Agro-Credit)",
-                "pmfby_insured": True,
-                "social_collateral": "3/3 Verified FPO Pool",
-                "peer_group_code": "GRP-SAHYADRI-01",
-                "crop_verification": "VERIFIED",
-                "bullet_repayment_date": (datetime.now() + datetime.timedelta(days=140)).strftime("%d-%b-%Y"),
-                "status": "PENDING_REVIEW",
-                "lender_notes": "Agronomic cashflow confirmed with AGMARKNET daily modal price.",
-                "assessment_date": datetime.now().strftime("%Y-%m-%d %H:%M")
-            },
-            {
-                "assessment_id": 102,
-                "farmer_id": 2,
-                "farmer_name": "Geeta Devi",
-                "phone": "9876543211",
-                "village": "Depalpur",
-                "district": "Indore",
-                "crop_name": "Soybean",
-                "acres": 1.5,
-                "projected_yield": 9.5,
-                "mandi_price_per_qtl": 4720.0,
-                "gross_revenue": 67260.0,
-                "total_expenses": 21000.0,
-                "net_profit": 46260.0,
-                "credit_score": 78,
-                "sanctioned_limit": 20817.0,
-                "risk_category": "Tier-2 Moderate Risk (Standard Agro-Credit)",
-                "pmfby_insured": True,
-                "social_collateral": "3/3 Verified FPO Pool",
-                "peer_group_code": "GRP-TAPI-02",
-                "crop_verification": "VERIFIED",
-                "bullet_repayment_date": (datetime.now() + datetime.timedelta(days=125)).strftime("%d-%b-%Y"),
-                "status": "SANCTIONED",
-                "lender_notes": "Qualified under priority sector lending guidelines.",
-                "assessment_date": datetime.now().strftime("%Y-%m-%d %H:%M")
-            }
-        ]
 
     return results
 
@@ -171,21 +140,56 @@ async def record_lender_decision(
 ):
     """
     Record lender decision (SANCTIONED / REJECTED) with audit trail.
+    Enforces strict state transitions:
+    - Only PENDING_REVIEW applications can be SANCTIONED or REJECTED.
+    - Repeated decisions and modifications to REJECTED or DISBURSED loans are blocked.
     """
     assessment = db.query(CreditAssessment).filter(CreditAssessment.id == assessment_id).first()
     if not assessment:
-        return {
-            "assessment_id": assessment_id,
-            "status": decision_data.decision,
-            "lender_notes": decision_data.lender_notes or f"Application marked as {decision_data.decision}",
-            "updated_at": datetime.now().isoformat() + "Z",
-            "message": f"Loan status successfully updated to {decision_data.decision}."
-        }
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Loan assessment #{assessment_id} not found in database."
+        )
 
-    assessment.status = decision_data.decision
+    decision = decision_data.decision.upper()
+    if decision not in ["SANCTIONED", "REJECTED"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid decision '{decision_data.decision}'. Allowed values: SANCTIONED, REJECTED."
+        )
+
+    # 1. Prevent duplicate action on identical state
+    if assessment.status == decision:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Loan application #{assessment_id} is already {assessment.status}. Duplicate action prevented."
+        )
+
+    # 2. Block modifications on disbursed loans
+    if assessment.status == "DISBURSED":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot change decision on loan #{assessment_id}: funds have already been disbursed."
+        )
+
+    # 3. Block modifications on rejected loans
+    if assessment.status == "REJECTED":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Loan #{assessment_id} was REJECTED and cannot be sanctioned or modified."
+        )
+
+    # 4. Enforce that only PENDING_REVIEW can transition to SANCTIONED or REJECTED
+    if assessment.status != "PENDING_REVIEW":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot decision loan #{assessment_id}: current status is '{assessment.status}'. Only PENDING_REVIEW loans can be sanctioned or rejected."
+        )
+
+    assessment.status = decision
     if decision_data.lender_notes:
         assessment.lender_notes = decision_data.lender_notes
-    if decision_data.sanctioned_amount:
+    if decision_data.sanctioned_amount and decision == "SANCTIONED":
         assessment.loan_eligibility_amount = decision_data.sanctioned_amount
 
     db.commit()
@@ -196,30 +200,74 @@ async def record_lender_decision(
         "status": assessment.status,
         "sanctioned_amount": assessment.loan_eligibility_amount,
         "lender_notes": assessment.lender_notes,
-        "message": f"Application {assessment.id} successfully updated to {assessment.status}."
+        "updated_at": datetime.utcnow().isoformat() + "Z",
+        "message": f"Loan #{assessment.id} successfully updated to {assessment.status}."
     }
 
 
 @router.post("/applications/{assessment_id}/disburse")
 async def disburse_loan(assessment_id: int, db: Session = Depends(get_db)):
     """
-    Execute instant loan disbursement via e-RUPI voucher or direct account credit.
+    Execute simulated loan disbursement via e-RUPI voucher sandbox rail.
+    Enforces strict prerequisites:
+    - Loan must be in SANCTIONED status.
+    - PENDING_REVIEW, REJECTED, or already DISBURSED loans are blocked.
     """
     assessment = db.query(CreditAssessment).filter(CreditAssessment.id == assessment_id).first()
-    amount = assessment.loan_eligibility_amount if assessment else 25650.0
+    if not assessment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Loan assessment #{assessment_id} not found in database."
+        )
 
-    if assessment:
-        assessment.status = "DISBURSED"
-        db.commit()
+    # 1. Prevent duplicate disbursement
+    if assessment.status == "DISBURSED":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Loan #{assessment_id} has already been disbursed (Tx: {assessment.disbursement_tx_id or 'eRUPI'}). Duplicate disbursement prevented."
+        )
+
+    # 2. Block disbursement on PENDING_REVIEW loans
+    if assessment.status == "PENDING_REVIEW":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot disburse loan #{assessment_id}: application is PENDING_REVIEW. It must be SANCTIONED by the lender before disbursement."
+        )
+
+    # 3. Block disbursement on REJECTED loans
+    if assessment.status == "REJECTED":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot disburse loan #{assessment_id}: application was REJECTED."
+        )
+
+    # 4. Strict requirement: status must be SANCTIONED
+    if assessment.status != "SANCTIONED":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot disburse loan #{assessment_id}: current status is '{assessment.status}'. Only SANCTIONED loans can be disbursed."
+        )
+
+    amount = assessment.loan_eligibility_amount
+    now = datetime.utcnow()
+    tx_id = f"SIM-eRUPI-AGRI-{assessment.id}-{int(time.time())}"
+
+    assessment.status = "DISBURSED"
+    assessment.disbursement_tx_id = tx_id
+    assessment.disbursed_at = now
+    db.commit()
+    db.refresh(assessment)
 
     return {
-        "assessment_id": assessment_id,
+        "assessment_id": assessment.id,
+        "farmer_id": assessment.farmer_id,
         "status": "DISBURSED",
-        "disbursement_channel": "NPCI e-RUPI Purpose-Bound Agricultural Voucher",
+        "disbursement_mode": "SIMULATED_DEMO",
+        "disbursement_channel": "Simulated NPCI e-RUPI Purpose-Bound Agricultural Voucher (Sandbox/Demo)",
         "disbursed_amount_inr": amount,
-        "disbursement_tx_id": f"eRUPI-AGRI-{assessment_id}-2026",
-        "timestamp": datetime.now().isoformat() + "Z",
-        "message": f"₹{amount:,.0f} successfully disbursed via e-RUPI voucher for agricultural input purchases."
+        "disbursement_tx_id": tx_id,
+        "timestamp": now.isoformat() + "Z",
+        "message": f"₹{amount:,.0f} simulated disbursement recorded via e-RUPI sandbox voucher (Demo rail). No real funds transferred."
     }
 
 

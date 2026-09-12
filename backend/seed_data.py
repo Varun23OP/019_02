@@ -87,6 +87,34 @@ def seed_database():
             notes="Drip irrigation installed. Healthy tomato saplings with zero pest infestation."
         )
         db.add(ver1)
+
+        # Credit Assessment for Ramesh Patel (Pending Underwriting Review)
+        bullet_date_ramesh = datetime.now() + timedelta(days=140)
+        assessment_ramesh = CreditAssessment(
+            farmer_id=farmer1.id,
+            assessment_date=datetime.now(),
+            credit_score=85,
+            loan_eligibility_amount=25650.0,
+            risk_category="Tier-1 Low Risk (Preferred Agro-Credit)",
+            crop_name="Tomato (Horticulture)",
+            acres=2.0,
+            projected_yield=18.0,
+            mandi_price_per_qtl=2250.0,
+            gross_revenue=81000.0,
+            total_expenses=24000.0,
+            net_profit=57000.0,
+            pmfby_insured=True,
+            bullet_repayment_date=bullet_date_ramesh,
+            status="PENDING_REVIEW",
+            score_breakdown=json.dumps([
+                {"factor": "Base Agronomic Foundation", "points_awarded": 35},
+                {"factor": "Operating Cashflow Margin", "points_awarded": 25},
+                {"factor": "FPO 3-Peer Social Guarantee", "points_awarded": 15},
+                {"factor": "PMFBY Crop Insurance Protection", "points_awarded": 10}
+            ]),
+            notes="Agronomic cashflow confirmed with AGMARKNET daily modal price."
+        )
+        db.add(assessment_ramesh)
         db.commit()
 
         # 3. Create Peer Group 2 (Indore, Soybean)

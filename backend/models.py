@@ -125,6 +125,8 @@ class CreditAssessment(Base):
     score_breakdown = Column(Text, nullable=True)  # JSON text
     lender_notes = Column(Text, nullable=True)
     notes = Column(String(1000), nullable=True)
+    disbursement_tx_id = Column(String(100), nullable=True)
+    disbursed_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationships

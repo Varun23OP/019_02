@@ -205,7 +205,8 @@ def test_lender_underwriting_and_disbursement():
     assert res_apps.status_code == 200
     apps = res_apps.json()
     assert len(apps) >= 1
-    target_assessment_id = apps[0]["assessment_id"]
+    pending_app = next((a for a in apps if a["status"] == "PENDING_REVIEW"), apps[-1])
+    target_assessment_id = pending_app["assessment_id"]
 
     # 2. Lender Sanction Decision
     decision_payload = {

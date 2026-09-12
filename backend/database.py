@@ -34,4 +34,11 @@ def init_db_schema():
             col_names = [r[1] for r in res]
             if "fpo_name" not in col_names:
                 conn.exec_driver_sql("ALTER TABLE farmers ADD COLUMN fpo_name VARCHAR(255)")
-                conn.commit()
+            
+            res_ca = conn.exec_driver_sql("PRAGMA table_info(credit_assessments)").fetchall()
+            ca_cols = [r[1] for r in res_ca]
+            if "disbursement_tx_id" not in ca_cols:
+                conn.exec_driver_sql("ALTER TABLE credit_assessments ADD COLUMN disbursement_tx_id VARCHAR(100)")
+            if "disbursed_at" not in ca_cols:
+                conn.exec_driver_sql("ALTER TABLE credit_assessments ADD COLUMN disbursed_at DATETIME")
+            conn.commit()
