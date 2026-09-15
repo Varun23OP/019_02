@@ -12,7 +12,7 @@ A community-owned financial infrastructure that democratizes agricultural credit
 2. **Transparent Underwriting**:
    - `Gross Revenue = Acres × Yield × AGMARKNET Mandi Price`
    - `Net Profit = Gross Revenue - Total Expenses`
-   - `Safe Credit Limit = 0.45 × Net Profit` (+15% limit bonus for consistent performers with 100% peer repayment track record)
+   - `Safe Credit Limit = 0.45 × Net Profit` (+15% limit bonus for consistent performers with 100% peer repayment track record.)
    - Explainable Credit Score on a strict 0–100 scale with itemized factor rationales.
    - Harvest-Synchronized Single Bullet Amortization (Zero monthly EMI during crop growth; due date aligned with harvest + 30-day marketing buffer).
 3. **Zero-Friction Multilingual Voice Intake in 11 Languages**: One-tap spoken input with live recording, instant Conformer STT, zero copy/paste automated field population, and vernacular confirmation summary across Hindi, Marathi, Gujarati, Telugu, Tamil, Kannada, Punjabi, Bengali, Odia, Assamese, and English.
